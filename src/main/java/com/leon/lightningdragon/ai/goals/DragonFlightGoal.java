@@ -331,7 +331,6 @@ public class DragonFlightGoal extends Goal {
 
             // Only consider fluids dangerous if we're close to them
             if (i <= 10 && !dragon.level().getFluidState(checkPos).isEmpty()) {
-                return true;
             }
         }
 
