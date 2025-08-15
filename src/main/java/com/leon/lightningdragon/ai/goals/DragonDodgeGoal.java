@@ -16,9 +16,9 @@ import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 /**
- *  - picks the projectile MOST moving toward us (dot product)
- *  - chooses the better lateral side (left/right)
- *  - predicts impact line and initiates a multi-tick dodge burst via entity.beginDodge(...)
+ * - picks the projectile MOST moving toward us (dot product)
+ * - chooses the better lateral side (left/right)
+ * - predicts impact line and initiates a multi-tick dodge burst via entity.beginDodge(...)
  * Works in 1.20.1, Forge 47.4.0.
  */
 public class DragonDodgeGoal extends Goal {
@@ -52,7 +52,6 @@ public class DragonDodgeGoal extends Goal {
         if (!dragon.isAlive()) return false;
         if (dragon.isTame() && dragon.isVehicle()) return false;
         if (dragon.isDodging()) return false;
-        if (dragon.isChargingBigAttack() && dragon.isVulnerable()) return false;
 
         long now = dragon.level().getGameTime();
         if (now < nextScanTime) return false;
