@@ -17,7 +17,7 @@ public class DragonAnimationController {
     private final LightningDragonEntity dragon;
 
     // ===== FLIGHT ANIMATION CONTROLLERS =====
-    public class FlightAnimationController {
+    public static class FlightAnimationController {
         private float timer = 0f;
         private final float maxTime;
         private boolean increasing = false;
@@ -104,19 +104,12 @@ public class DragonAnimationController {
         }
     }
 
-    /**
-     * THE FIXED animation predicate with smooth transitions
-     */
     public PlayState handleMovementAnimation(AnimationState<LightningDragonEntity> state) {
         // Ability animations still take priority
         if (dragon.getActiveAbility() != null && dragon.getActiveAbility().isUsing()) {
             state.getController().transitionLength(0);
             return dragon.getActiveAbility().animationPredicate(state);
         }
-
-        // Add transition length for smoother changes - THE FIX
-        state.getController().transitionLength(8); // 8 ticks = smoother blending
-
         if (dragon.isOrderedToSit()) {
             state.setAndContinue(LightningDragonEntity.SIT);
         } else if (dragon.isDodging()) {
@@ -157,9 +150,6 @@ public class DragonAnimationController {
         return PlayState.CONTINUE;
     }
 
-    /**
-     * ENHANCED flight animation system - your physics stay untouched
-     */
     private void updateFlightAnimationControllers() {
         if (!dragon.isFlying()) {
             // Ground state - smoothly fade out all flight animations
@@ -223,9 +213,8 @@ public class DragonAnimationController {
 
                 // Discrete flap trigger (only when physics demands it)
                 if (discreteFlapCooldown <= 0) {
-                    boolean shouldTriggerFlap = false;
+                    boolean shouldTriggerFlap = isDiving && velocity.y < -0.15;
 
-                    if (isDiving && velocity.y < -0.15) shouldTriggerFlap = true;
                     if (isClimbing && velocity.y > 0.15) shouldTriggerFlap = true;
                     if (isTurning && Math.abs(dragon.getBanking()) > 30.0f) shouldTriggerFlap = true;
                     if (isDescending && Math.random() < 0.08) shouldTriggerFlap = true;
@@ -270,7 +259,7 @@ public class DragonAnimationController {
             double speed = velocity.horizontalDistanceSqr();
             float bankingFactor = Math.abs(dragon.getBanking()) / 45.0f;
 
-            targetIntensity += (speed * 2.0f + bankingFactor * 0.3f);
+            targetIntensity += (float) (speed * 2.0f + bankingFactor * 0.3f);
             targetIntensity = Mth.clamp(targetIntensity, 0f, 1f);
         }
 

@@ -1,7 +1,6 @@
 package com.leon.lightningdragon.ai.goals;
 
 import com.leon.lightningdragon.entity.LightningDragonEntity;
-import net.minecraft.util.Mth;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.ai.goal.Goal;
 import net.minecraft.world.phys.Vec3;
@@ -194,7 +193,7 @@ public class DragonAirCombatGoal extends Goal {
         } else if (distance < 12 && heightDiff > 8) {
             // Very close and above - dive attack
             currentAttackMode = AirAttackMode.LIGHTNING_DIVE;
-        } else if (distance >= 12 && distance <= 25) {
+        } else if (distance >= 12) {
             // Medium range - mix of hover and strafe
             if (dragon.getRandom().nextFloat() < 0.6f) {
                 currentAttackMode = AirAttackMode.HOVER_BLAST; // Prefer hovering for beam attacks

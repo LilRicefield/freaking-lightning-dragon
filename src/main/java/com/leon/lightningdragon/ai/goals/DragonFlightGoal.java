@@ -20,7 +20,6 @@ public class DragonFlightGoal extends Goal {
     private Vec3 targetPosition;
     private int stuckCounter = 0;
     private int timeSinceTargetChange = 0;
-    private boolean isFlying;
 
     // NEW: Landing cooldown to prevent immediate takeoff after landing
     private static final int LANDING_COOLDOWN_TICKS = 100; // 5 seconds minimum on ground
@@ -58,25 +57,22 @@ public class DragonFlightGoal extends Goal {
         }
 
         // Must fly if over danger
+        boolean isFlying;
         if (isOverDanger()) {
-            this.isFlying = true;
+            isFlying = true;
         } else {
             // Weather-based flight decisions
             boolean isStormy = dragon.level().isRaining() || dragon.level().isThundering();
 
             if (dragon.isFlying()) {
-                this.isFlying = shouldKeepFlying(isStormy);
+                isFlying = shouldKeepFlying(isStormy);
             } else {
-                this.isFlying = shouldTakeOff(isStormy);
+                isFlying = shouldTakeOff(isStormy);
             }
         }
 
-        if (this.isFlying) {
-            Vec3 target = findFlightTarget();
-            if (target == null) {
-                return false;
-            }
-            this.targetPosition = target;
+        if (isFlying) {
+            this.targetPosition = findFlightTarget();
             return true;
         }
 
@@ -172,12 +168,9 @@ public class DragonFlightGoal extends Goal {
         }
 
         if (needNewTarget) {
-            Vec3 newTarget = findFlightTarget();
-            if (newTarget != null) {
-                targetPosition = newTarget;
-                timeSinceTargetChange = 0;
-                dragon.getMoveControl().setWantedPosition(targetPosition.x, targetPosition.y, targetPosition.z, 1.0);
-            }
+            targetPosition = findFlightTarget();
+            timeSinceTargetChange = 0;
+            dragon.getMoveControl().setWantedPosition(targetPosition.x, targetPosition.y, targetPosition.z, 1.0);
         }
     }
 
@@ -203,7 +196,7 @@ public class DragonFlightGoal extends Goal {
         for (int attempts = 0; attempts < 16; attempts++) {
             Vec3 candidate = generateFlightCandidate(dragonPos, attempts);
 
-            if (candidate != null && isValidFlightTarget(candidate)) {
+            if (isValidFlightTarget(candidate)) {
                 return candidate;
             }
         }

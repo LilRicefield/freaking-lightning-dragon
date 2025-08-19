@@ -80,7 +80,7 @@ public class DragonGroundWanderGoal extends RandomStrollGoal {
                         16, // range
                         7,  // vertical range
                         owner.position(),
-                        (double) ((float) Math.PI / 3F) // 60-degree cone towards owner
+                        (float) Math.PI / 3F // 60-degree cone towards owner
                 );
             }
         }

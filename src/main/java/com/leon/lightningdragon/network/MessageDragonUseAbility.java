@@ -33,6 +33,7 @@ public class MessageDragonUseAbility {
     public static void handle(MessageDragonUseAbility msg, Supplier<NetworkEvent.Context> ctx) {
         ctx.get().enqueueWork(() -> {
             // CLIENT SIDE ONLY
+            assert Minecraft.getInstance().level != null;
             Entity entity = Minecraft.getInstance().level.getEntity(msg.entityID);
             if (entity instanceof LightningDragonEntity dragon) {
                 // Find the ability type by name and activate it

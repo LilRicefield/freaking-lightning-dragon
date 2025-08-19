@@ -6,6 +6,7 @@ import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.phys.Vec3;
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 /**
@@ -135,7 +136,7 @@ public class DragonMathUtil {
             return mob.getSensing().hasLineOfSight(target);
         }
         // Fallback: simple distance check if not a Mob
-        return entity.distanceTo(target) < entity.getAttribute(Attributes.FOLLOW_RANGE).getValue();
+        return entity.distanceTo(target) < Objects.requireNonNull(entity.getAttribute(Attributes.FOLLOW_RANGE)).getValue();
     }
 
     /**
