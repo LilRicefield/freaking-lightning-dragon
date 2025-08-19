@@ -59,19 +59,15 @@ import net.minecraftforge.network.PacketDistributor;
 
 //GeckoLib
 
+import org.jetbrains.annotations.NotNull;
 import software.bernie.geckolib.animatable.GeoEntity;
 import software.bernie.geckolib.core.animatable.instance.AnimatableInstanceCache;
 import software.bernie.geckolib.core.animatable.instance.SingletonAnimatableInstanceCache;
 import software.bernie.geckolib.core.animation.*;
-import software.bernie.geckolib.core.animation.AnimationState;
-import software.bernie.geckolib.core.object.PlayState;
 
 //WHO ARE THESE SUCKAS
 import org.jetbrains.annotations.Nullable;
-import java.util.EnumSet;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.function.Supplier;
 
 //Just everything
@@ -106,6 +102,29 @@ public class LightningDragonEntity extends TamableAnimal implements GeoEntity, F
     private static final int MIN_AMBIENT_DELAY = 200;  // 10 seconds
     private static final int MAX_AMBIENT_DELAY = 600;  // 30 seconds
 
+    // ===== CORE ANIMATIONS =====
+    public static final RawAnimation GROUND_IDLE = RawAnimation.begin().thenLoop("animation.lightning_dragon.ground_idle");
+    public static final RawAnimation GROUND_WALK = RawAnimation.begin().thenLoop("animation.lightning_dragon.walk");
+    public static final RawAnimation GROUND_RUN = RawAnimation.begin().thenLoop("animation.lightning_dragon.run");
+    public static final RawAnimation SIT = RawAnimation.begin().thenLoop("animation.lightning_dragon.sit");
+
+    public static final RawAnimation TAKEOFF = RawAnimation.begin().thenPlay("animation.lightning_dragon.takeoff");
+    public static final RawAnimation FLY_GLIDE = RawAnimation.begin().thenLoop("animation.lightning_dragon.fly_gliding");
+    public static final RawAnimation FLY_FORWARD = RawAnimation.begin().thenLoop("animation.lightning_dragon.fly_forward");
+    public static final RawAnimation LANDING = RawAnimation.begin().thenPlay("animation.lightning_dragon.landing");
+
+    public static final RawAnimation HURT = RawAnimation.begin().thenPlay("animation.lightning_dragon.hurt");
+    public static final RawAnimation DODGE = RawAnimation.begin().thenPlay("animation.lightning_dragon.dodge");
+    public static final RawAnimation ROAR = RawAnimation.begin().thenPlay("animation.lightning_dragon.roar");
+
+
+    // Attack animations - these will be defined in the ability classes
+    public static final RawAnimation LIGHTNING_BREATH = RawAnimation.begin().thenPlay("animation.lightning_dragon.lightning_breath");
+    public static final RawAnimation THUNDER_STOMP = RawAnimation.begin().thenPlay("animation.lightning_dragon.thunder_stomp");
+    public static final RawAnimation WING_LIGHTNING = RawAnimation.begin().thenPlay("animation.lightning_dragon.wing_lightning");
+    public static final RawAnimation ELECTRIC_BITE = RawAnimation.begin().thenPlay("animation.lightning_dragon.electric_bite");
+
+
     // ===== ABILITY SYSTEM =====
     public static final AbilityType<LightningDragonEntity, EnhancedLightningBeamAbility> LIGHTNING_BEAM_ABILITY =
             new AbilityType<>("lightning_beam", EnhancedLightningBeamAbility::new);
@@ -119,7 +138,7 @@ public class LightningDragonEntity extends TamableAnimal implements GeoEntity, F
             new AbilityType<>("electric_bite", ElectricBiteAbility::new);
     public static final AbilityType<LightningDragonEntity, HurtAbility<LightningDragonEntity>> HURT_ABILITY =
             new AbilityType<>("dragon_hurt", (type, entity) -> new HurtAbility<>(type, entity,
-                    RawAnimation.begin().thenPlay("hurt"), 16, 0));
+                    HURT, 16, 0));
 
     // ===== CONSTANTS =====
     private static final double TAKEOFF_UPWARD_FORCE = 0.075D;
@@ -181,8 +200,8 @@ public class LightningDragonEntity extends TamableAnimal implements GeoEntity, F
     private Vec3 dodgeVec = Vec3.ZERO;
 
     // Navigation
-    private GroundPathNavigation groundNav;
-    private FlyingPathNavigation airNav;
+    private final GroundPathNavigation groundNav;
+    private final FlyingPathNavigation airNav;
     private boolean usingAirNav = false;
 
     // Ability system state
@@ -217,29 +236,6 @@ public class LightningDragonEntity extends TamableAnimal implements GeoEntity, F
     }
     private final DragonAnimationController animationController = new DragonAnimationController(this);
 
-    // ===== CORE ANIMATIONS =====
-    public static final RawAnimation GROUND_IDLE = RawAnimation.begin().thenLoop("animation.lightning_dragon.ground_idle");
-    public static final RawAnimation GROUND_WALK = RawAnimation.begin().thenLoop("animation.lightning_dragon.walk");
-    public static final RawAnimation GROUND_RUN = RawAnimation.begin().thenLoop("animation.lightning_dragon.run");
-    public static final RawAnimation SIT = RawAnimation.begin().thenLoop("animation.lightning_dragon.sit");
-
-    public static final RawAnimation TAKEOFF = RawAnimation.begin().thenPlay("animation.lightning_dragon.takeoff");
-    public static final RawAnimation FLY_GLIDE = RawAnimation.begin().thenLoop("animation.lightning_dragon.fly_gliding");
-    public static final RawAnimation FLY_FORWARD = RawAnimation.begin().thenLoop("animation.lightning_dragon.fly_forward");
-    public static final RawAnimation FLY_HOVER = RawAnimation.begin().thenLoop("animation.lightning_dragon.fly_hovering");
-    public static final RawAnimation LANDING = RawAnimation.begin().thenPlay("animation.lightning_dragon.landing");
-
-    public static final RawAnimation HURT = RawAnimation.begin().thenPlay("animation.lightning_dragon.hurt");
-    public static final RawAnimation DODGE = RawAnimation.begin().thenPlay("animation.lightning_dragon.dodge");
-    public static final RawAnimation ROAR = RawAnimation.begin().thenPlay("animation.lightning_dragon.roar");
-
-
-    // Attack animations - these will be defined in the ability classes
-    public static final RawAnimation LIGHTNING_BREATH = RawAnimation.begin().thenPlay("animation.lightning_dragon.lightning_breath");
-    public static final RawAnimation THUNDER_STOMP = RawAnimation.begin().thenPlay("animation.lightning_dragon.thunder_stomp");
-    public static final RawAnimation WING_LIGHTNING = RawAnimation.begin().thenPlay("animation.lightning_dragon.wing_lightning");
-    public static final RawAnimation ELECTRIC_BITE = RawAnimation.begin().thenPlay("animation.lightning_dragon.electric_bite");
-
     public LightningDragonEntity(EntityType<? extends TamableAnimal> type, Level level) {
         super(type, level);
         this.setMaxUpStep(1.25F);
@@ -248,7 +244,7 @@ public class LightningDragonEntity extends TamableAnimal implements GeoEntity, F
         this.groundNav = new GroundPathNavigation(this, level);
         this.airNav = new FlyingPathNavigation(this, level) {
             @Override
-            public boolean isStableDestination(BlockPos pos) {
+            public boolean isStableDestination(@NotNull BlockPos pos) {
                 return !this.level.getBlockState(pos.below()).isAir();
             }
         };
@@ -301,7 +297,7 @@ public class LightningDragonEntity extends TamableAnimal implements GeoEntity, F
     }
 
     public boolean hasLightningTarget() {
-        return this.entityData.get(HAS_LIGHTNING_TARGET).booleanValue();
+        return this.entityData.get(HAS_LIGHTNING_TARGET);
     }
 
     public void setLightningTargetVec(float x, float y, float z) {
@@ -455,7 +451,7 @@ public class LightningDragonEntity extends TamableAnimal implements GeoEntity, F
     }
 
     @Override
-    protected PathNavigation createNavigation(Level level) {
+    protected @NotNull PathNavigation createNavigation(@NotNull Level level) {
         return new GroundPathNavigation(this, level);
     }
 
@@ -503,9 +499,9 @@ public class LightningDragonEntity extends TamableAnimal implements GeoEntity, F
         this.entityData.set(DATA_RUNNING, running);
         if (running) {
             runningTicks = 0;
-            this.getAttribute(Attributes.MOVEMENT_SPEED).setBaseValue(RUN_SPEED);
+            Objects.requireNonNull(this.getAttribute(Attributes.MOVEMENT_SPEED)).setBaseValue(RUN_SPEED);
         } else {
-            this.getAttribute(Attributes.MOVEMENT_SPEED).setBaseValue(WALK_SPEED);
+            Objects.requireNonNull(this.getAttribute(Attributes.MOVEMENT_SPEED)).setBaseValue(WALK_SPEED);
         }
     }
 
@@ -554,11 +550,11 @@ public class LightningDragonEntity extends TamableAnimal implements GeoEntity, F
         handleFlightLogic();
         if (isRunning() && !hasRunningAttributes) {
             hasRunningAttributes = true;
-            this.getAttribute(Attributes.MOVEMENT_SPEED).setBaseValue(0.45D); // Fast running
+            Objects.requireNonNull(this.getAttribute(Attributes.MOVEMENT_SPEED)).setBaseValue(0.45D); // Fast running
         }
         if (!isRunning() && hasRunningAttributes) {
             hasRunningAttributes = false;
-            this.getAttribute(Attributes.MOVEMENT_SPEED).setBaseValue(0.25D); // Normal walking
+            Objects.requireNonNull(this.getAttribute(Attributes.MOVEMENT_SPEED)).setBaseValue(0.25D); // Normal walking
         }
         if (isInSittingPose() && sitProgress < maxSitTicks()) {
             sitProgress++;
@@ -808,7 +804,7 @@ public class LightningDragonEntity extends TamableAnimal implements GeoEntity, F
 
     // ===== TRAVEL METHOD =====
     @Override
-    public void travel(Vec3 motion) {
+    public void travel(@NotNull Vec3 motion) {
         if (this.isInSittingPose() || this.isDodging()) {
             if (this.getNavigation().getPath() != null) {
                 this.getNavigation().stop();
@@ -866,36 +862,13 @@ public class LightningDragonEntity extends TamableAnimal implements GeoEntity, F
         pitchFactor = (float) ((double) pitchFactor * (double) pitchFactor * Math.min(1.0D, lookDirectionLength / 0.4D));
 
         // Enhanced gravity system that responds to flight animation state
-        double baseGravity = 0.08D;
-        double gravity = baseGravity;
-
-        if (getFlappingFraction() > 0.2f) {
-            gravity *= (1.0 - getFlappingFraction() * 0.5); // Up to 50% gravity reduction
-        } else if (getHoveringFraction() > 0.4f) {
-            gravity *= (1.0 - getHoveringFraction() * 0.3); // Up to 30% gravity reduction
-        }
-
-// Gliding efficiency bonus
-        if (getGlidingFraction() > 0.5f) {
-            gravity *= (1.0 - getGlidingFraction() * 0.2); // Efficient gliding reduces sink rate
-        }
+        double gravity = getGravity();
 
         Vec3 result = currentVel.add(0.0D, gravity * (-1.0D + (double) pitchFactor * 0.75D), 0.0D);
 
         // Enhanced lift calculation with animation influence
         if (result.y < 0.0D && horizontalSpeed > 0.0D) {
-            double baseLiftFactor = result.y * -0.1D * (double) pitchFactor;
-
-            // FIX: Restore lift enhancement based on wing state
-            double liftMultiplier = 1.0;
-            if (getFlappingFraction() > 0.3f) {
-                liftMultiplier += getFlappingFraction() * 0.6; // Active flapping boosts lift
-            }
-            if (getGlidingFraction() > 0.5f) {
-                liftMultiplier += getGlidingFraction() * 0.4; // Efficient gliding improves lift/drag
-            }
-
-            double liftFactor = baseLiftFactor * liftMultiplier;
+            double liftFactor = getLiftFactor(result, pitchFactor);
 
             result = result.add(
                     moveDirection.x * liftFactor / horizontalSpeed,
@@ -928,6 +901,37 @@ public class LightningDragonEntity extends TamableAnimal implements GeoEntity, F
         }
 
         return result;
+    }
+
+    private double getLiftFactor(Vec3 result, double pitchFactor) {
+        double baseLiftFactor = result.y * -0.1D * pitchFactor;
+
+        // FIX: Restore lift enhancement based on wing state
+        double liftMultiplier = 1.0;
+        if (getFlappingFraction() > 0.3f) {
+            liftMultiplier += getFlappingFraction() * 0.6; // Active flapping boosts lift
+        }
+        if (getGlidingFraction() > 0.5f) {
+            liftMultiplier += getGlidingFraction() * 0.4; // Efficient gliding improves lift/drag
+        }
+
+        return baseLiftFactor * liftMultiplier;
+    }
+
+    private double getGravity() {
+        double gravity = 0.08D;
+
+        if (getFlappingFraction() > 0.2f) {
+            gravity *= (1.0 - getFlappingFraction() * 0.5); // Up to 50% gravity reduction
+        } else if (getHoveringFraction() > 0.4f) {
+            gravity *= (1.0 - getHoveringFraction() * 0.3); // Up to 30% gravity reduction
+        }
+
+// Gliding efficiency bonus
+        if (getGlidingFraction() > 0.5f) {
+            gravity *= (1.0 - getGlidingFraction() * 0.2); // Efficient gliding reduces sink rate
+        }
+        return gravity;
     }
 
     private void handleHoveringTravel(Vec3 motion) {
@@ -963,7 +967,7 @@ public class LightningDragonEntity extends TamableAnimal implements GeoEntity, F
 
     // ===== RANGED ATTACK IMPLEMENTATION =====
     @Override
-    public void performRangedAttack(LivingEntity target, float distanceFactor) {
+    public void performRangedAttack(@NotNull LivingEntity target, float distanceFactor) {
         // Let the combat goal handle ability selection
         // Only use this as absolute fallback if combat goal isn't working
         if (canUseAbility() && getActiveAbility() == null) {
@@ -1001,17 +1005,12 @@ public class LightningDragonEntity extends TamableAnimal implements GeoEntity, F
     }
 
     @Override
-    public int getMaxHeadYRot() {
-        return 75;
-    }
-
-    @Override
     public int getMaxHeadXRot() {
         return 60;
     }
 
     // ===== LOOK CONTROLLER =====
-    public class DragonLookController extends LookControl {
+    public static class DragonLookController extends LookControl {
         private final LightningDragonEntity dragon;
 
         public DragonLookController(LightningDragonEntity dragon) {
@@ -1083,7 +1082,7 @@ public class LightningDragonEntity extends TamableAnimal implements GeoEntity, F
 
 
     // ===== PANIC GOAL =====
-    public class DragonPanicGoal extends Goal {
+    public static class DragonPanicGoal extends Goal {
         private final LightningDragonEntity dragon;
         private double posX, posY, posZ;
 
@@ -1142,7 +1141,7 @@ public class LightningDragonEntity extends TamableAnimal implements GeoEntity, F
 
     // ===== INTERACTION =====
     @Override
-    public InteractionResult mobInteract(Player player, InteractionHand hand) {
+    public @NotNull InteractionResult mobInteract(Player player, @NotNull InteractionHand hand) {
         ItemStack itemstack = player.getItemInHand(hand);
 
         if (!this.isTame()) {
@@ -1208,7 +1207,7 @@ public class LightningDragonEntity extends TamableAnimal implements GeoEntity, F
     }
 
     @Override
-    public boolean doHurtTarget(Entity entityIn) {
+    public boolean doHurtTarget(@NotNull Entity entityIn) {
         // Use ability system for melee attacks
         if (canUseAbility()) {
             sendAbilityMessage(ELECTRIC_BITE_ABILITY);
@@ -1219,7 +1218,7 @@ public class LightningDragonEntity extends TamableAnimal implements GeoEntity, F
 
     // ===== SAVE/LOAD =====
     @Override
-    public void addAdditionalSaveData(CompoundTag tag) {
+    public void addAdditionalSaveData(@NotNull CompoundTag tag) {
         super.addAdditionalSaveData(tag);
         tag.putBoolean("Flying", isFlying());
         tag.putBoolean("Takeoff", isTakeoff());
@@ -1235,7 +1234,7 @@ public class LightningDragonEntity extends TamableAnimal implements GeoEntity, F
     }
 
     @Override
-    public void readAdditionalSaveData(CompoundTag tag) {
+    public void readAdditionalSaveData(@NotNull CompoundTag tag) {
         super.readAdditionalSaveData(tag);
         this.setFlying(tag.getBoolean("Flying"));
         this.setTakeoff(tag.getBoolean("Takeoff"));
@@ -1271,17 +1270,17 @@ public class LightningDragonEntity extends TamableAnimal implements GeoEntity, F
         // Add sound keyframe handler (keep your existing sound code)
         movementController.setSoundKeyframeHandler(state -> {
             String sound = state.getKeyframeData().getSound();
-            if (sound.equals("lightning_blast")) {
-                level().playSound(null, getX(), getY(), getZ(), SoundEvents.LIGHTNING_BOLT_THUNDER,
-                        SoundSource.HOSTILE, 1.5f, 1.0f);
-            } else if (sound.equals("wing_flap")) {
-                level().playSound(null, getX(), getY(), getZ(), SoundEvents.ENDER_DRAGON_FLAP,
+            switch (sound) {
+                case "lightning_blast" ->
+                        level().playSound(null, getX(), getY(), getZ(), SoundEvents.LIGHTNING_BOLT_THUNDER,
+                                SoundSource.HOSTILE, 1.5f, 1.0f);
+                case "wing_flap" -> level().playSound(null, getX(), getY(), getZ(), SoundEvents.ENDER_DRAGON_FLAP,
                         SoundSource.HOSTILE, 0.8f, 1.2f);
-            } else if (sound.equals("electric_charge")) {
-                level().playSound(null, getX(), getY(), getZ(), SoundEvents.LIGHTNING_BOLT_IMPACT,
-                        SoundSource.HOSTILE, 1.0f, 2.0f);
-            } else if (sound.equals("dragon_step")) { // 🔧 ADD THIS
-                this.playSound(ModSounds.DRAGON_STEP.get(), 0.9f, 0.9f + getRandom().nextFloat() * 0.2f);
+                case "electric_charge" ->
+                        level().playSound(null, getX(), getY(), getZ(), SoundEvents.LIGHTNING_BOLT_IMPACT,
+                                SoundSource.HOSTILE, 1.0f, 2.0f);
+                case "dragon_step" ->  // 🔧 ADD THIS
+                        this.playSound(ModSounds.DRAGON_STEP.get(), 0.9f, 0.9f + getRandom().nextFloat() * 0.2f);
             }
         });
         controllers.add(movementController);
@@ -1331,7 +1330,7 @@ public class LightningDragonEntity extends TamableAnimal implements GeoEntity, F
     }
     @Override
     @Nullable
-    public AgeableMob getBreedOffspring(net.minecraft.server.level.ServerLevel level, AgeableMob otherParent) {
+    public AgeableMob getBreedOffspring(net.minecraft.server.level.@NotNull ServerLevel level, @NotNull AgeableMob otherParent) {
         return null;
     }
 }
