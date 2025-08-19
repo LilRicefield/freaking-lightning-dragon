@@ -69,5 +69,6 @@ public class DragonGroundCombatGoal extends Goal {
         dragon.setRunning(false);
         dragon.getNavigation().stop();
         attackCooldown = 0;
+        dragon.forceEndActiveAbility();
     }
 }

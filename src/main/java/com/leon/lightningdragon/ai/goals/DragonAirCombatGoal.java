@@ -220,6 +220,7 @@ public class DragonAirCombatGoal extends Goal {
         currentAttackMode = null;
         attackTimer = 0;
         attackCooldown = 0;
+        dragon.forceEndActiveAbility();
     }
 
     // Public getter for debugging/other systems

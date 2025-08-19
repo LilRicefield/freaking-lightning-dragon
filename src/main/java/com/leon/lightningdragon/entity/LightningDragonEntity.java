@@ -433,6 +433,22 @@ public class LightningDragonEntity extends TamableAnimal implements GeoEntity, F
         return this.position().add(offsetX, mouthUp, offsetZ);
     }
 
+    public void forceEndActiveAbility() {
+        if (activeAbility != null && activeAbility.isUsing()) {
+            activeAbility.end();
+            setActiveAbility(null);
+        }
+
+        // Clean up attack states
+        setAttacking(false);
+        setHasLightningTarget(false);
+
+        // Reset ability cooldown to prevent immediate re-use
+        if (abilityCooldown < 20) {
+            abilityCooldown = 20; // Brief cooldown after forced end
+        }
+    }
+
     // ===== NAVIGATION SWITCHING =====
     private void switchToAirNavigation() {
         if (!this.usingAirNav) {
@@ -542,11 +558,22 @@ public class LightningDragonEntity extends TamableAnimal implements GeoEntity, F
         this.hasImpulse = true;
     }
 
+    private void validateCurrentTarget() {
+        LivingEntity currentTarget = getTarget();
+        if (currentTarget instanceof Player player) {
+            if (player.isCreative() || (isTame() && isOwnedBy(player))) {
+                setTarget(null);
+                forceEndActiveAbility();
+            }
+        }
+    }
+
     // ===== MAIN TICK METHOD =====
     @Override
     public void tick() {
         animationController.tick();
         super.tick();
+        validateCurrentTarget();
         handleFlightLogic();
         if (isRunning() && !hasRunningAttributes) {
             hasRunningAttributes = true;
