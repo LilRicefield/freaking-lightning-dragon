@@ -110,21 +110,17 @@ public class DragonAirCombatGoal extends Goal {
             dragon.setHovering(true);
             attackTarget = dragon.position(); // Stay in place
 
-            // Attack with lightning beam or breath
-            if (dragon.canUseAbility() && attackCooldown <= 0) {
-                if (dragon.getRandom().nextBoolean()) {
-                    dragon.sendAbilityMessage(LightningDragonEntity.LIGHTNING_BEAM_ABILITY);
-                } else {
-                    dragon.sendAbilityMessage(LightningDragonEntity.LIGHTNING_BREATH_ABILITY);
+            // SMART attack selection based on distance
+            if (attackCooldown <= 0) {
+                if (dragon.tryUseRangedAbility()) {
+                    attackCooldown = 40;
                 }
-                attackCooldown = 80; // 4 second cooldown
             }
         }
 
-        if (attackTarget != null) {
-            dragon.getMoveControl().setWantedPosition(attackTarget.x, attackTarget.y, attackTarget.z, 1.0);
-        }
+        dragon.getMoveControl().setWantedPosition(attackTarget.x, attackTarget.y, attackTarget.z, 1.2);
     }
+
 
     private void executeLightningDive(LivingEntity target) {
         dragon.setHovering(false);
@@ -191,20 +187,27 @@ public class DragonAirCombatGoal extends Goal {
         double distance = dragon.distanceTo(target);
         double heightDiff = dragon.getY() - target.getY();
 
-        // Smart attack mode selection based on position and distance
-        if (distance > 30) {
-            // Long range - hover and blast
+        // Enhanced attack mode selection
+        if (distance > 25) {
+            // Long range - definitely hover and use beam attacks
             currentAttackMode = AirAttackMode.HOVER_BLAST;
-        } else if (distance < 15 && heightDiff > 10) {
-            // Close and above - dive attack
+        } else if (distance < 12 && heightDiff > 8) {
+            // Very close and above - dive attack
             currentAttackMode = AirAttackMode.LIGHTNING_DIVE;
+        } else if (distance >= 12 && distance <= 25) {
+            // Medium range - mix of hover and strafe
+            if (dragon.getRandom().nextFloat() < 0.6f) {
+                currentAttackMode = AirAttackMode.HOVER_BLAST; // Prefer hovering for beam attacks
+            } else {
+                currentAttackMode = AirAttackMode.STRAFE_RUN;
+            }
         } else {
-            // Medium range - strafe run
+            // Default fallback
             currentAttackMode = AirAttackMode.STRAFE_RUN;
         }
 
-        // Add some randomness to keep it interesting
-        if (dragon.getRandom().nextFloat() < 0.3f) {
+        // Reduced randomness - only 15% chance to override smart selection
+        if (dragon.getRandom().nextFloat() < 0.15f) {
             AirAttackMode[] modes = AirAttackMode.values();
             currentAttackMode = modes[dragon.getRandom().nextInt(modes.length)];
         }

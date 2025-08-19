@@ -99,8 +99,8 @@ public class LightningDragonEntity extends TamableAnimal implements GeoEntity, F
     private final Map<String, CachedValue<?>> cache = new HashMap<>();
     // ===== ABILITY SYSTEM =====
     // Core abilities every dragon should have
-    public static final AbilityType<LightningDragonEntity, SimplifiedLightningBeamAbility> LIGHTNING_BEAM_ABILITY =
-            new AbilityType<>("lightning_beam", SimplifiedLightningBeamAbility::new);
+    public static final AbilityType<LightningDragonEntity, EnhancedLightningBeamAbility> LIGHTNING_BEAM_ABILITY =
+            new AbilityType<>("lightning_beam", EnhancedLightningBeamAbility::new);
     public static final AbilityType<LightningDragonEntity, LightningBreathAbility> LIGHTNING_BREATH_ABILITY =
             new AbilityType<>("lightning_breath", LightningBreathAbility::new);
     public static final AbilityType<LightningDragonEntity, ThunderStompAbility> THUNDER_STOMP_ABILITY =
@@ -316,6 +316,45 @@ public class LightningDragonEntity extends TamableAnimal implements GeoEntity, F
     }
 
     // ===== ABILITY SYSTEM METHODS =====
+    public boolean tryUseRangedAbility() {
+        LivingEntity target = getTarget();
+        if (target == null || !canUseAbility()) return false;
+
+        double distance = distanceTo(target);
+
+        // Priority order based on distance - more decisive than probability
+        if (distance >= 20) {
+            // Long range - try beam first, then breath as fallback
+            Ability<LightningDragonEntity> beamAbility = LIGHTNING_BEAM_ABILITY.createAbility(this);
+            if (beamAbility.tryAbility()) {
+                sendAbilityMessage(LIGHTNING_BEAM_ABILITY);
+                return true;
+            }
+
+            Ability<LightningDragonEntity> breathAbility = LIGHTNING_BREATH_ABILITY.createAbility(this);
+            if (breathAbility.tryAbility()) {
+                sendAbilityMessage(LIGHTNING_BREATH_ABILITY);
+                return true;
+            }
+        } else {
+            // Close range - try breath first, then beam as fallback
+            Ability<LightningDragonEntity> breathAbility = LIGHTNING_BREATH_ABILITY.createAbility(this);
+            if (breathAbility.tryAbility()) {
+                sendAbilityMessage(LIGHTNING_BREATH_ABILITY);
+                return true;
+            }
+
+            Ability<LightningDragonEntity> beamAbility = LIGHTNING_BEAM_ABILITY.createAbility(this);
+            if (beamAbility.tryAbility()) {
+                sendAbilityMessage(LIGHTNING_BEAM_ABILITY);
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+
     public Ability<LightningDragonEntity> getActiveAbility() {
         return activeAbility;
     }

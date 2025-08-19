@@ -34,11 +34,14 @@ public class LightningBreathAbility extends Ability<LightningDragonEntity> {
 
     @Override
     public boolean tryAbility() {
-        // Can only use if we have a target and they're in range
         LivingEntity target = getUser().getTarget();
-        if (target != null && getUser().distanceToSqr(target) <= 625) { // 25 block range
-            targetPos = target.getEyePosition();
-            return true;
+        if (target != null) {
+            double distanceSquared = getUser().distanceToSqr(target);
+            // PREFER closer range - up to 18 blocks
+            if (distanceSquared <= 324) { // 18 blocks squared
+                targetPos = target.getEyePosition();
+                return true;
+            }
         }
         return false;
     }
