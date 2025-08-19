@@ -15,7 +15,7 @@ YOU ARE ALLOWED TO:
 
 ---
 
-YOU ARE *NOT* ALLOWED TO:
+YOU ARE NOT ALLOWED TO:
 
 - Modify or fork this mod without explicit permission from me.
 - Re-upload the mod to other sites or platforms, even if unchanged. (bro, why do that at all)
