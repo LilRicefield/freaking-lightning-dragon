@@ -1253,6 +1253,11 @@
 							}
 						}
 					]
+				},
+				{
+					"name": "mouth_origin",
+					"parent": "head",
+					"pivot": [0, 6.5, -14.35]
 				}
 			]
 		}

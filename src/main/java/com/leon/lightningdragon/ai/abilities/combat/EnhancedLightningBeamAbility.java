@@ -3,16 +3,13 @@ package com.leon.lightningdragon.ai.abilities.combat;
 import com.leon.lightningdragon.ai.abilities.Ability;
 import com.leon.lightningdragon.ai.abilities.AbilityType;
 import com.leon.lightningdragon.entity.LightningDragonEntity;
-import net.minecraft.core.BlockPos;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.LivingEntity;
-import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.phys.AABB;
-import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
 
 import java.util.HashSet;
@@ -32,7 +29,7 @@ public class EnhancedLightningBeamAbility extends Ability<LightningDragonEntity>
     private Vec3 beamTarget;
     private int phase = 0; // 0=charge, 1=beam
     private int burnProgress = 0;
-    private Set<LivingEntity> recentlyDamaged = new HashSet<>();
+    private final Set<LivingEntity> recentlyDamaged = new HashSet<>();
     private Vec3 lastBeamEnd;
 
     public EnhancedLightningBeamAbility(AbilityType<LightningDragonEntity, EnhancedLightningBeamAbility> abilityType, LightningDragonEntity user) {
@@ -104,7 +101,7 @@ public class EnhancedLightningBeamAbility extends Ability<LightningDragonEntity>
 
         // Charging particles
         if (getUser().level().isClientSide) {
-            Vec3 headPos = getHeadPosition();
+            Vec3 headPos = getUser().getMouthPosition();
             for (int i = 0; i < 3; i++) {
                 getUser().level().addParticle(ParticleTypes.ELECTRIC_SPARK,
                         headPos.x + (getUser().getRandom().nextDouble() - 0.5) * 1.5,
@@ -321,6 +318,7 @@ public class EnhancedLightningBeamAbility extends Ability<LightningDragonEntity>
     public void end() {
         super.end();
         getUser().setAttacking(false);
+        getUser().setHasLightningTarget(false);
         if (getUser().isFlying()) {
             getUser().setHovering(false);
         }

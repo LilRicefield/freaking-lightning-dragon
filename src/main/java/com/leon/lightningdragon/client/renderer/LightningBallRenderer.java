@@ -11,7 +11,7 @@ import net.minecraft.client.renderer.entity.EntityRenderer;
 import net.minecraft.client.renderer.entity.EntityRendererProvider;
 import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.resources.ResourceLocation;
-import net.minecraft.util.Mth;
+import org.jetbrains.annotations.NotNull;
 import org.joml.Matrix3f;
 import org.joml.Matrix4f;
 
@@ -48,14 +48,14 @@ public class LightningBallRenderer extends EntityRenderer<LightningBallEntity> {
         Matrix3f matrix3f = pose.normal();
 
         // Render as a billboard quad
-        renderQuad(matrix4f, matrix3f, vertexConsumer, 0xF000F0); // Full bright
+        renderQuad(matrix4f, matrix3f, vertexConsumer); // Full bright
 
         poseStack.popPose();
 
         super.render(entity, entityYaw, partialTick, poseStack, bufferSource, packedLight);
     }
 
-    private void renderQuad(Matrix4f matrix4f, Matrix3f matrix3f, VertexConsumer vertexConsumer, int packedLight) {
+    private void renderQuad(Matrix4f matrix4f, Matrix3f matrix3f, VertexConsumer vertexConsumer) {
         float size = 0.5f;
 
         // Create a glowing quad
@@ -63,7 +63,7 @@ public class LightningBallRenderer extends EntityRenderer<LightningBallEntity> {
                 .color(100, 150, 255, 200) // Electric blue with alpha
                 .uv(0.0F, 1.0F)
                 .overlayCoords(OverlayTexture.NO_OVERLAY)
-                .uv2(packedLight)
+                .uv2(15728880)
                 .normal(matrix3f, 0.0F, 1.0F, 0.0F)
                 .endVertex();
 
@@ -71,7 +71,7 @@ public class LightningBallRenderer extends EntityRenderer<LightningBallEntity> {
                 .color(100, 150, 255, 200)
                 .uv(1.0F, 1.0F)
                 .overlayCoords(OverlayTexture.NO_OVERLAY)
-                .uv2(packedLight)
+                .uv2(15728880)
                 .normal(matrix3f, 0.0F, 1.0F, 0.0F)
                 .endVertex();
 
@@ -79,7 +79,7 @@ public class LightningBallRenderer extends EntityRenderer<LightningBallEntity> {
                 .color(100, 150, 255, 200)
                 .uv(1.0F, 0.0F)
                 .overlayCoords(OverlayTexture.NO_OVERLAY)
-                .uv2(packedLight)
+                .uv2(15728880)
                 .normal(matrix3f, 0.0F, 1.0F, 0.0F)
                 .endVertex();
 
@@ -87,13 +87,13 @@ public class LightningBallRenderer extends EntityRenderer<LightningBallEntity> {
                 .color(100, 150, 255, 200)
                 .uv(0.0F, 0.0F)
                 .overlayCoords(OverlayTexture.NO_OVERLAY)
-                .uv2(packedLight)
+                .uv2(15728880)
                 .normal(matrix3f, 0.0F, 1.0F, 0.0F)
                 .endVertex();
     }
 
     @Override
-    public ResourceLocation getTextureLocation(LightningBallEntity entity) {
+    public @NotNull ResourceLocation getTextureLocation(@NotNull LightningBallEntity entity) {
         return TEXTURE;
     }
 }
