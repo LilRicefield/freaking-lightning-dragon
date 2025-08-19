@@ -1,6 +1,10 @@
 Hi, I'm Leon. This sole Lightning Dragon mod is made with AI, and it is specifically Claude Sonnet 4.
 
 This is just a past-time project of mine. Took one look at Bob Mowzie's Naga and Alex's Ice & Fire: Dragons and fell in love with those. So I think to myself, "How about I make my own Lightning Dragon and make it dodge while using other abilities too?" Then came the birth of this project. You can say that this project is HEAVILY inspired by Mowzie's Mobs and Ice & Fire: Dragons. Shout out to the amazing, talented, and smart folks over there and check those mods out too.
+
+Mowzie's Mobs: https://www.curseforge.com/minecraft/mc-mods/mowzies-mobs
+Ice & Fire: Dragons: https://www.curseforge.com/minecraft/mc-mods/ice-and-fire-dragons
+
 Code work is all by AI. I have NOTHING to do with it. So, if you were to work with me, please don't ask me what the freak is public boolean and private static are about. Geez...
 As for the dragon's (or wyvern's, for the flying reptiles nerds out there; you'll see why it's a wyvern if you have the mod) model, animations, and texture are all made by me with one inspiration from the franchise How To Train Your Dragon's Skrill. Gosh, I love that thing. So metal.
 
