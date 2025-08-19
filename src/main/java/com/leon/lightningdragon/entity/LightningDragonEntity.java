@@ -1,5 +1,5 @@
 /**
- * My name's Rip Van Winkle. I'm a lightning dragon.
+ * My name's Zap Van Dink. I'm a lightning dragon.
  */
 package com.leon.lightningdragon.entity;
 
@@ -14,16 +14,18 @@ import com.leon.lightningdragon.ai.abilities.*;
 import com.leon.lightningdragon.ai.abilities.combat.*;
 import com.leon.lightningdragon.ai.goals.DragonAirCombatGoal;
 import com.leon.lightningdragon.ai.goals.DragonCombatFlightGoal;
-
+import com.leon.lightningdragon.registry.ModSounds;
 
 //Minecraft
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.util.RandomSource;
 import net.minecraft.world.entity.monster.RangedAttackMob;
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.syncher.EntityDataAccessor;
 import net.minecraft.network.syncher.EntityDataSerializers;
 import net.minecraft.network.syncher.SynchedEntityData;
-import net.minecraft.sounds.SoundEvents;
+import net.minecraft.sounds.SoundEvent;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.util.Mth;
 import net.minecraft.world.InteractionHand;
@@ -72,7 +74,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.Supplier;
 
-
 //Just everything
 public class LightningDragonEntity extends TamableAnimal implements GeoEntity, FlyingAnimal, RangedAttackMob {
     // Cache wrapper class
@@ -97,8 +98,15 @@ public class LightningDragonEntity extends TamableAnimal implements GeoEntity, F
         public T get() { return value; }
     }
     private final Map<String, CachedValue<?>> cache = new HashMap<>();
+    // ===== AMBIENT SOUND SYSTEM =====
+    private int ambientSoundTimer = 0;
+    private int nextAmbientSoundDelay = 0;
+
+    // Sound frequency constants (in ticks)
+    private static final int MIN_AMBIENT_DELAY = 200;  // 10 seconds
+    private static final int MAX_AMBIENT_DELAY = 600;  // 30 seconds
+
     // ===== ABILITY SYSTEM =====
-    // Core abilities every dragon should have
     public static final AbilityType<LightningDragonEntity, EnhancedLightningBeamAbility> LIGHTNING_BEAM_ABILITY =
             new AbilityType<>("lightning_beam", EnhancedLightningBeamAbility::new);
     public static final AbilityType<LightningDragonEntity, LightningBreathAbility> LIGHTNING_BREATH_ABILITY =
@@ -112,7 +120,6 @@ public class LightningDragonEntity extends TamableAnimal implements GeoEntity, F
     public static final AbilityType<LightningDragonEntity, HurtAbility<LightningDragonEntity>> HURT_ABILITY =
             new AbilityType<>("dragon_hurt", (type, entity) -> new HurtAbility<>(type, entity,
                     RawAnimation.begin().thenPlay("hurt"), 16, 0));
-
 
     // ===== CONSTANTS =====
     private static final double TAKEOFF_UPWARD_FORCE = 0.075D;
@@ -543,7 +550,6 @@ public class LightningDragonEntity extends TamableAnimal implements GeoEntity, F
     @Override
     public void tick() {
         animationController.tick();
-
         super.tick();
         handleFlightLogic();
         if (isRunning() && !hasRunningAttributes) {
@@ -557,14 +563,15 @@ public class LightningDragonEntity extends TamableAnimal implements GeoEntity, F
         if (isInSittingPose() && sitProgress < maxSitTicks()) {
             sitProgress++;
         }
-
         if (!isInSittingPose() && sitProgress > 0F) {
             sitProgress--;
         }
         if (!level().isClientSide && (!isFlying() || isLanding())) {
             updateBankingReset();
         }
-
+        if (!level().isClientSide) {
+            handleAmbientSounds();
+        }
         // Ability system tick
         if (activeAbility != null) {
             if (activeAbility.isUsing()) {
@@ -573,40 +580,123 @@ public class LightningDragonEntity extends TamableAnimal implements GeoEntity, F
                 activeAbility = null;
             }
         }
-
         // Cooldown management
         if (abilityCooldown > 0) {
             abilityCooldown--;
         }
-
         // Handle dodge movement first
         if (!level().isClientSide && dodging) {
             handleDodgeMovement();
             return;
         }
-
         // Track running time for animations
         if (isRunning()) {
             runningTicks++;
         } else {
             runningTicks = Math.max(0, runningTicks - 2);
         }
-
         // Auto-stop running if not moving much
         if (isRunning() && getDeltaMovement().horizontalDistanceSqr() < 0.01) {
             setRunning(false);
         }
     }
+    /**
+     * Plays appropriate ambient sound based on dragon's current mood and state
+     */
+    private void playCustomAmbientSound() {
+        RandomSource random = getRandom();
+
+        // Don't make ambient sounds if we're in combat or using abilities
+        if (isAggressive() || (activeAbility != null && activeAbility.isUsing())) {
+            return;
+        }
+        SoundEvent soundToPlay = null;
+        float volume = 0.8f;
+        float pitch = 1.0f + (random.nextFloat() - 0.5f) * 0.2f; // Slight pitch variation
+
+        // Choose sound based on current state and mood
+        if (isOrderedToSit()) {
+            // Content sitting sounds
+            if (random.nextFloat() < 0.6f) {
+                soundToPlay = ModSounds.DRAGON_CONTENT.get();
+            } else {
+                soundToPlay = ModSounds.DRAGON_PURR.get();
+                volume = 0.6f; // Quieter purring
+            }
+        } else if (isFlying()) {
+            // Occasional aerial sounds
+            if (random.nextFloat() < 0.3f) {
+                soundToPlay = ModSounds.DRAGON_CHUFF.get();
+                volume = 1.2f; // Louder in the air
+            }
+        } else if (isWalking() || isRunning()) {
+            // Focused movement sounds
+            soundToPlay = ModSounds.DRAGON_SNORT.get();
+        } else {
+            // Regular idle grumbling
+            float grumbleChance = random.nextFloat();
+            if (grumbleChance < 0.4f) {
+                soundToPlay = ModSounds.DRAGON_GRUMBLE_1.get();
+            } else if (grumbleChance < 0.7f) {
+                soundToPlay = ModSounds.DRAGON_GRUMBLE_2.get();
+            } else if (grumbleChance < 0.9f) {
+                soundToPlay = ModSounds.DRAGON_GRUMBLE_3.get();
+            } else {
+                soundToPlay = ModSounds.DRAGON_PURR.get();
+                volume = 0.5f;
+            }
+        }
+        // Play the sound if we chose one
+        if (soundToPlay != null) {
+            this.playSound(soundToPlay, volume, pitch); // Use entity's own playSound method
+        }
+    }
+    /**
+     * Handles all the ambient grumbling and personality sounds
+     * Because a silent dragon is a boring dragon
+     */
+    private void handleAmbientSounds() {
+        ambientSoundTimer++;
+
+        // Time to make some noise?
+        if (ambientSoundTimer >= nextAmbientSoundDelay) {
+            playCustomAmbientSound(); // Renamed to avoid conflict with Mob.playAmbientSound()
+            resetAmbientSoundTimer();
+        }
+    }
+    /**
+     * Resets the ambient sound timer with some randomness
+     */
+    private void resetAmbientSoundTimer() {
+        RandomSource random = getRandom();
+        ambientSoundTimer = 0;
+        nextAmbientSoundDelay = MIN_AMBIENT_DELAY + random.nextInt(MAX_AMBIENT_DELAY - MIN_AMBIENT_DELAY);
+    }
+    /**
+     * Call this method when dragon gets excited/happy (like when player approaches)
+     */
+    public void playExcitedSound() {
+        if (!level().isClientSide) {
+            this.playSound(ModSounds.DRAGON_EXCITED.get(), 1.0f, 1.0f + getRandom().nextFloat() * 0.3f);
+        }
+    }
+
+    /**
+     * Call this when dragon gets annoyed (like when attacked by something weak)
+     */
+    public void playAnnoyedSound() {
+        if (!level().isClientSide) {
+            this.playSound(ModSounds.DRAGON_ANNOYED.get(), 1.2f, 0.8f + getRandom().nextFloat() * 0.4f);
+        }
+    }
 
     //Targeting
-
     // CACHE EXPENSIVE CALCULATIONS
     private Vec3 cachedLookDirection = Vec3.ZERO;
     private int lookDirectionCacheTime = 0;
     public double getAngleBetweenEntities(Entity first, Entity second) {
         return Math.atan2(second.getZ() - first.getZ(), second.getX() - first.getX()) * (180 / Math.PI) + 90;
     }
-
     private void handleDodgeMovement() {
         Vec3 current = this.getDeltaMovement();
         Vec3 boosted = current.add(dodgeVec.scale(0.25));
@@ -618,7 +708,6 @@ public class LightningDragonEntity extends TamableAnimal implements GeoEntity, F
             dodgeVec = Vec3.ZERO;
         }
     }
-
     private void updateBankingReset() {
         float smoothedBanking = DragonMathUtil.approachSmooth(
                 getBanking(), getPrevBanking(), 0.0f, 2.0f, 0.1f
@@ -626,7 +715,6 @@ public class LightningDragonEntity extends TamableAnimal implements GeoEntity, F
         setPrevBanking(getBanking());
         setBanking(smoothedBanking);
     }
-
     private void handleFlightLogic() {
         if (isFlying()) {
             handleFlyingTick();
@@ -638,7 +726,6 @@ public class LightningDragonEntity extends TamableAnimal implements GeoEntity, F
             handleSimpleLanding();
         }
     }
-
     private void handleFlyingTick() {
         timeFlying++;
 
@@ -1193,39 +1280,12 @@ public class LightningDragonEntity extends TamableAnimal implements GeoEntity, F
             } else if (sound.equals("electric_charge")) {
                 level().playSound(null, getX(), getY(), getZ(), SoundEvents.LIGHTNING_BOLT_IMPACT,
                         SoundSource.HOSTILE, 1.0f, 2.0f);
+            } else if (sound.equals("dragon_step")) { // 🔧 ADD THIS
+                this.playSound(ModSounds.DRAGON_STEP.get(), 0.9f, 0.9f + getRandom().nextFloat() * 0.2f);
             }
         });
-
         controllers.add(movementController);
     }
-
-    private PlayState movementAnimationPredicate(AnimationState<LightningDragonEntity> state) {
-        // Ability animations still take priority
-        if (activeAbility != null && activeAbility.isUsing()) {
-            System.out.println("Delegating to ability: " + activeAbility.getClass().getSimpleName()); //DEBUG
-            state.getController().transitionLength(0);
-            return activeAbility.animationPredicate(state);
-        }
-
-        if (this.isOrderedToSit()) {
-            state.setAndContinue(SIT);
-        } else if (isDodging()) {
-            state.setAndContinue(DODGE);
-        } else if (isLanding()) {
-            state.setAndContinue(LANDING);
-        }  else {
-            // Ground movement logic remains the same
-            if (isActuallyRunning()) {
-                state.setAndContinue(GROUND_RUN);
-            } else if (isWalking()) {
-                state.setAndContinue(GROUND_WALK);
-            } else {
-                state.setAndContinue(GROUND_IDLE);
-            }
-        }
-        return PlayState.CONTINUE;
-    }
-
     @Override
     public AnimatableInstanceCache getAnimatableInstanceCache() {
         return geckoCache;

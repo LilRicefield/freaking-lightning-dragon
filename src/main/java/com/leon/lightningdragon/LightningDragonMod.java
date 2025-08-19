@@ -6,6 +6,7 @@ import com.leon.lightningdragon.entity.LightningDragonEntity;
 import com.leon.lightningdragon.network.NetworkHandler;
 import com.leon.lightningdragon.registry.ModEntities;
 import com.leon.lightningdragon.registry.ModItems;
+import com.leon.lightningdragon.registry.ModSounds; // ADD THIS
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.SpawnPlacements;
 import net.minecraft.world.item.CreativeModeTabs;
@@ -43,6 +44,7 @@ public class LightningDragonMod {
         // Register deferred registers
         ModEntities.REGISTER.register(modBus);
         ModItems.REGISTER.register(modBus);
+        ModSounds.REGISTER.register(modBus); // ADD THIS LINE
 
         // Register event handlers
         modBus.addListener(this::onEntityAttributes);
@@ -53,6 +55,8 @@ public class LightningDragonMod {
         MinecraftForge.EVENT_BUS.addListener(this::onSpawnPlacements);
 
         NetworkHandler.register();
+
+        LOGGER.info("[LD] Mod initialization complete with sound registry");
     }
 
     private void onEntityAttributes(EntityAttributeCreationEvent event) {
@@ -61,7 +65,7 @@ public class LightningDragonMod {
     }
 
     private void onRegisterRenderers(EntityRenderersEvent.RegisterRenderers event) {
-        // Register entity renderers - this is where your renderer gets used!
+        // Register entity renderers
         event.registerEntityRenderer(ModEntities.LIGHTNING_DRAGON.get(), LightningDragonRenderer::new);
         event.registerEntityRenderer(ModEntities.LIGHTNING_BALL.get(), LightningBallRenderer::new);
 
