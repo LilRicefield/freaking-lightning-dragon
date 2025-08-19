@@ -8,7 +8,9 @@ Ice & Fire: Dragons: https://www.curseforge.com/minecraft/mc-mods/ice-and-fire-d
 Code work is all by AI. I have NOTHING to do with it. So, if you were to work with me, please don't ask me what the freak is public boolean and private static are about. Geez...
 As for the dragon's (or wyvern's, for the flying reptiles nerds out there; you'll see why it's a wyvern if you have the mod) model, animations, and texture are all made by me with one inspiration from the franchise How To Train Your Dragon's Skrill. Gosh, I love that thing. So metal.
 
-Thanks for taking your time to read this. And if you wanna contribute? Feel free to hit me up! I bet my left leg and my two kidneys you're a far better coder than I am. You worry about the code. Let me worry about the assets.
+Thanks for taking your time to read this. And if you wanna contribute? Feel free to hit me up! I bet my left leg and my two kidneys you're a far better coder than I am. You worry about the code. Let me worry about the assets, or if you have a cooler design? Totally, why not?
+
+Contact me at: lilricefield@gmail.com
 
 As long as your contributions have stuff that are true to the dragon's image and behavior? Heck yeah! We're in this together and take as long as you need, cuz you're human too, and you got other stuff that are more important than this mod.
 Again, just a past-time project.
