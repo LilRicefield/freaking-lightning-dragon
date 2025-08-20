@@ -3,23 +3,21 @@ package com.leon.lightningdragon.ai.abilities.combat;
 import com.leon.lightningdragon.ai.abilities.Ability;
 import com.leon.lightningdragon.ai.abilities.AbilityType;
 import com.leon.lightningdragon.entity.LightningDragonEntity;
-import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.core.BlockPos;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
 
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-/**
- * Enhanced Lightning Beam - Replaces vanilla lightning bolts with continuous beam effect
- * Creates a proper lightning stream similar to Ice & Fire but more sophisticated
- */
 public class EnhancedLightningBeamAbility extends Ability<LightningDragonEntity> {
     private static final int CHARGE_TIME = 20;
     private static final int BEAM_TIME = 40;
@@ -30,7 +28,6 @@ public class EnhancedLightningBeamAbility extends Ability<LightningDragonEntity>
     private int phase = 0; // 0=charge, 1=beam
     private int burnProgress = 0;
     private final Set<LivingEntity> recentlyDamaged = new HashSet<>();
-    private Vec3 lastBeamEnd;
 
     public EnhancedLightningBeamAbility(AbilityType<LightningDragonEntity, EnhancedLightningBeamAbility> abilityType, LightningDragonEntity user) {
         super(abilityType, user);
@@ -48,6 +45,7 @@ public class EnhancedLightningBeamAbility extends Ability<LightningDragonEntity>
     public void start() {
         super.start();
         getUser().setAttacking(true);
+        getUser().setLightningStreamActive(true);
 
         if (getUser().isFlying()) {
             getUser().setHovering(true);
@@ -61,203 +59,195 @@ public class EnhancedLightningBeamAbility extends Ability<LightningDragonEntity>
         burnProgress = 0;
         phase = 0;
         recentlyDamaged.clear();
-
-        // Charging sound
-        getUser().level().playSound(null, getUser().getX(), getUser().getY(), getUser().getZ(),
-                SoundEvents.LIGHTNING_BOLT_THUNDER, SoundSource.HOSTILE, 1.0f, 0.8f);
     }
 
     @Override
-    protected void tickUsing() {
-        super.tickUsing();
+    public void tick() {
+        super.tick();
 
-        // Always look at target during beam
-        if (getUser().getTarget() != null) {
-            getUser().getLookControl().setLookAt(getUser().getTarget(), 30f, 30f);
-        }
-
-        if (getTicksInUse() < CHARGE_TIME) {
-            tickCharging();
+        if (getTicksInUse() <= CHARGE_TIME) {
+            // Charging phase - build up energy
+            chargePhase();
         } else {
-            if (phase == 0) {
-                phase = 1;
-                // Beam start sound
-                getUser().level().playSound(null, getUser().getX(), getUser().getY(), getUser().getZ(),
-                        SoundEvents.LIGHTNING_BOLT_IMPACT, SoundSource.HOSTILE, 2.0f, 1.2f);
-            }
-            tickBeam();
-        }
-
-        if (getTicksInUse() >= TOTAL_TIME) {
-            this.isUsing = false;
+            // Beam phase - fire the lightning stream
+            beamPhase();
         }
     }
 
-    private void tickCharging() {
+    private void chargePhase() {
         // Update target position
         if (getUser().getTarget() != null) {
             beamTarget = getUser().getTarget().getEyePosition();
         }
 
-        // Charging particles
-        if (getUser().level().isClientSide) {
-            Vec3 mouthPos = getUser().getMouthPosition();
-            for (int i = 0; i < 3; i++) {
-                getUser().level().addParticle(ParticleTypes.ELECTRIC_SPARK,
-                        mouthPos.x + (getUser().getRandom().nextDouble() - 0.5) * 1.5,
-                        mouthPos.y + (getUser().getRandom().nextDouble() - 0.5) * 1.5,
-                        mouthPos.z + (getUser().getRandom().nextDouble() - 0.5) * 1.5,
-                        0, 0, 0);
-            }
-        }
-
-        // Charging sound buildup
-        if (getTicksInUse() % 8 == 0) {
-            float pitch = 0.8f + (getTicksInUse() / (float)CHARGE_TIME) * 0.6f;
+        // Charging sound every 10 ticks
+        if (getTicksInUse() % 10 == 0) {
             getUser().level().playSound(null, getUser().getX(), getUser().getY(), getUser().getZ(),
-                    SoundEvents.BEACON_POWER_SELECT, SoundSource.HOSTILE, 0.5f, pitch);
+                    SoundEvents.LIGHTNING_BOLT_THUNDER, SoundSource.HOSTILE, 0.5f, 2.0f);
         }
     }
 
-    private void tickBeam() {
+    private void beamPhase() {
+        if (phase == 0) {
+            // Just entered beam phase
+            phase = 1;
+            getUser().level().playSound(null, getUser().getX(), getUser().getY(), getUser().getZ(),
+                    SoundEvents.LIGHTNING_BOLT_IMPACT, SoundSource.HOSTILE, 2.0f, 1.0f);
+        }
+
+        if (beamTarget == null) return;
+
+        // Progressive beam firing (similar to Ice & Fire)
+        stimulateLightning(beamTarget.x, beamTarget.y, beamTarget.z);
         burnProgress++;
 
-        // Update target position gradually for smooth tracking
-        if (getUser().getTarget() != null) {
-            Vec3 newTarget = getUser().getTarget().getEyePosition();
-            if (beamTarget != null) {
-                // Smooth interpolation for realistic beam tracking
-                beamTarget = beamTarget.lerp(newTarget, 0.1);
-            } else {
-                beamTarget = newTarget;
-            }
+        // Continue targeting current target
+        if (getUser().getTarget() != null && getTicksInUse() % 5 == 0) {
+            beamTarget = getUser().getTarget().getEyePosition();
         }
 
-        if (beamTarget != null) {
-            // Set rendering target for your existing system
-            getUser().setHasLightningTarget(true);
-            getUser().setLightningTargetVec((float)beamTarget.x, (float)beamTarget.y, (float)beamTarget.z);
-
-            // Create the enhanced beam effect
-            createLightningBeam(beamTarget);
-
-            // Handle damage
-            if (!getUser().level().isClientSide) {
-                damageEntitiesInBeam(beamTarget);
-            }
-        }
-
-        // Continuous beam sounds
-        if (getTicksInUse() % 6 == 0) {
+        // Beam sound every 7 ticks
+        if (getTicksInUse() % 7 == 0) {
             getUser().level().playSound(null, getUser().getX(), getUser().getY(), getUser().getZ(),
-                    SoundEvents.LIGHTNING_BOLT_IMPACT, SoundSource.HOSTILE, 1.0f, 1.8f);
+                    SoundEvents.LIGHTNING_BOLT_THUNDER, SoundSource.HOSTILE, 1.0f, 1.5f);
         }
     }
 
     /**
-     * Creates a sophisticated continuous lightning beam effect
-     * Much better than spamming vanilla lightning bolts
+     * AUTHENTIC ICE & FIRE stimulateFire - Exact implementation from EntityLightningDragon.java
+     * Progressive lightning beam that extends from head to target incrementally with proper destruction
      */
-    private void createLightningBeam(Vec3 target) {
-        Vec3 mouthPos = getUser().getMouthPosition();
-        Vec3 direction = target.subtract(mouthPos);
-        double distance = direction.length();
-
-        if (distance < 0.5) return;
-
-        direction = direction.normalize();
-
-        // Create main beam with multiple branches
-        createMainBeam(mouthPos, target, direction, distance);
-
-        // Create side branches for more realistic lightning
-        createBeamBranches(mouthPos, direction, distance);
-
-        // Store last beam end for lingering effects
-        lastBeamEnd = target;
-    }
-
-    private void createMainBeam(Vec3 start, Vec3 end, Vec3 direction, double distance) {
-        int steps = (int)(distance * 4); // Higher density for smoother beam
-
-        for (int i = 0; i <= steps; i++) {
-            double progress = (double)i / steps;
-            Vec3 beamPos = start.add(direction.scale(progress * distance));
-
-            // Add natural lightning zigzag pattern
-            double zigzagAmplitude = 0.4 * Math.sin(progress * Math.PI * 8);
-            Vec3 perpendicular = direction.cross(new Vec3(0, 1, 0)).normalize();
-            beamPos = beamPos.add(perpendicular.scale(zigzagAmplitude));
-
-            // Add random variations for organic look
-            beamPos = beamPos.add(
-                    (getUser().getRandom().nextDouble() - 0.5) * 0.3,
-                    (getUser().getRandom().nextDouble() - 0.5) * 0.3,
-                    (getUser().getRandom().nextDouble() - 0.5) * 0.3
-            );
-
-            // Main beam particles - bright and dense
-            getUser().level().addParticle(ParticleTypes.ELECTRIC_SPARK,
-                    beamPos.x, beamPos.y, beamPos.z,
-                    (getUser().getRandom().nextDouble() - 0.5) * 0.05,
-                    (getUser().getRandom().nextDouble() - 0.5) * 0.05,
-                    (getUser().getRandom().nextDouble() - 0.5) * 0.05);
-
-            // Add extra intensity particles every few steps
-            if (i % 3 == 0) {
-                for (int j = 0; j < 2; j++) {
-                    getUser().level().addParticle(ParticleTypes.ELECTRIC_SPARK,
-                            beamPos.x + (getUser().getRandom().nextDouble() - 0.5) * 0.2,
-                            beamPos.y + (getUser().getRandom().nextDouble() - 0.5) * 0.2,
-                            beamPos.z + (getUser().getRandom().nextDouble() - 0.5) * 0.2,
-                            0, 0, 0);
+    private void stimulateLightning(double burnX, double burnY, double burnZ) {
+        // Store burn coordinates for particle system
+        Vec3 headPos = getUser().getHeadPosition();
+        double d2 = burnX - headPos.x;
+        double d3 = burnY - headPos.y;
+        double d4 = burnZ - headPos.z;
+        
+        // Calculate distance and conquered distance based on burn progress
+        double distance = Math.max(2.5F, headPos.distanceTo(new Vec3(burnX, burnY, burnZ)));
+        double conqueredDistance = burnProgress / 40.0 * distance;
+        int increment = (int) Math.ceil(conqueredDistance / 100);
+        
+        // Update stream progress for renderer
+        float streamProgress = Math.min(1.0F, (float)(burnProgress / 40.0));
+        getUser().setLightningStreamProgress(streamProgress);
+        
+        // Progressive beam rendering along path - THE CORE ICE & FIRE LOGIC
+        for (int i = 0; i < conqueredDistance; i += increment) {
+            double progressX = headPos.x + d2 * (i / distance);
+            double progressY = headPos.y + d3 * (i / distance);
+            double progressZ = headPos.z + d4 * (i / distance);
+            
+            if (canPositionBeSeen(progressX, progressY, progressZ)) {
+                // Clear path - set lightning target for visual rendering
+                getUser().setHasLightningTarget(true);
+                getUser().setLightningTargetVec((float)burnX, (float)burnY, (float)burnZ);
+            } else {
+                // Hit obstacle - destroy it and terminate beam there
+                if (!getUser().level().isClientSide) {
+                    HitResult result = getUser().level().clip(new ClipContext(
+                            new Vec3(getUser().getX(), getUser().getY() + getUser().getEyeHeight(), getUser().getZ()),
+                            new Vec3(progressX, progressY, progressZ),
+                            ClipContext.Block.COLLIDER,
+                            ClipContext.Fluid.NONE,
+                            getUser()
+                    ));
+                    
+                    BlockPos pos = BlockPos.containing(result.getLocation());
+                    // Use Ice & Fire style area destruction
+                    destroyAreaLightning(pos);
+                    
+                    // Set target to hit location for visual effect
+                    getUser().setHasLightningTarget(true);
+                    getUser().setLightningTargetVec(
+                            (float) result.getLocation().x, 
+                            (float) result.getLocation().y, 
+                            (float) result.getLocation().z
+                    );
                 }
+                break;
+            }
+        }
+        
+        // Damage entities along the current beam length
+        damageEntitiesInBeam(new Vec3(burnX, burnY, burnZ));
+        
+        // Final impact when beam reaches full distance (Ice & Fire style)
+        if (burnProgress >= 40 && canPositionBeSeen(burnX, burnY, burnZ)) {
+            // Add some randomness to final impact like Ice & Fire
+            double spawnX = burnX + (getUser().level().random.nextFloat() * 3.0) - 1.5;
+            double spawnY = burnY + (getUser().level().random.nextFloat() * 3.0) - 1.5;
+            double spawnZ = burnZ + (getUser().level().random.nextFloat() * 3.0) - 1.5;
+            
+            getUser().setHasLightningTarget(true);
+            getUser().setLightningTargetVec((float) spawnX, (float) spawnY, (float) spawnZ);
+            
+            if (!getUser().level().isClientSide) {
+                // Massive destruction at final target
+                destroyAreaLightning(BlockPos.containing(spawnX, spawnY, spawnZ));
             }
         }
     }
 
-    private void createBeamBranches(Vec3 start, Vec3 mainDirection, double mainDistance) {
-        // Create 2-3 branch points along the main beam
-        int numBranches = 2 + getUser().getRandom().nextInt(2);
+    private boolean canPositionBeSeen(double x, double y, double z) {
+        Vec3 start = new Vec3(getUser().getX(), getUser().getY() + getUser().getEyeHeight(), getUser().getZ());
+        Vec3 end = new Vec3(x, y, z);
 
-        for (int branch = 0; branch < numBranches; branch++) {
-            double branchPoint = 0.3 + getUser().getRandom().nextDouble() * 0.4; // Branch 30-70% along beam
-            Vec3 branchStart = start.add(mainDirection.scale(branchPoint * mainDistance));
+        HitResult result = getUser().level().clip(new ClipContext(start, end,
+                ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, getUser()));
 
-            // Create random branch direction
-            Vec3 branchDir = new Vec3(
-                    (getUser().getRandom().nextDouble() - 0.5) * 2,
-                    (getUser().getRandom().nextDouble() - 0.5) * 1,
-                    (getUser().getRandom().nextDouble() - 0.5) * 2
-            ).normalize();
+        return result.getType() == HitResult.Type.MISS;
+    }
 
-            double branchLength = 3 + getUser().getRandom().nextDouble() * 4;
-            int branchSteps = (int)(branchLength * 2);
-
-            // Create the branch
-            for (int i = 0; i <= branchSteps; i++) {
-                double progress = (double)i / branchSteps;
-                Vec3 branchPos = branchStart.add(branchDir.scale(progress * branchLength));
-
-                // Branches fade out as they extend
-                if (getUser().getRandom().nextDouble() < 0.7) {
-                    getUser().level().addParticle(ParticleTypes.ELECTRIC_SPARK,
-                            branchPos.x, branchPos.y, branchPos.z, 0, 0, 0);
+    /**
+     * ENHANCED Lightning Area Destruction - Ice & Fire Style
+     * More realistic destruction pattern with variable intensity
+     */
+    private void destroyAreaLightning(BlockPos center) {
+        // Primary destruction - immediate area
+        for (int x = -1; x <= 1; x++) {
+            for (int y = -1; y <= 1; y++) {
+                for (int z = -1; z <= 1; z++) {
+                    BlockPos pos = center.offset(x, y, z);
+                    if (getUser().level().getBlockState(pos).getDestroySpeed(getUser().level(), pos) >= 0) {
+                        getUser().level().destroyBlock(pos, true);
+                    }
+                }
+            }
+        }
+        
+        // Secondary destruction - wider area with probability
+        for (int x = -2; x <= 2; x++) {
+            for (int y = -2; y <= 2; y++) {
+                for (int z = -2; z <= 2; z++) {
+                    if (Math.abs(x) <= 1 && Math.abs(y) <= 1 && Math.abs(z) <= 1) continue; // Skip already destroyed
+                    
+                    BlockPos pos = center.offset(x, y, z);
+                    float distance = (float) Math.sqrt(x*x + y*y + z*z);
+                    float destructionChance = Math.max(0.1f, 1.0f - (distance / 3.0f)); // Closer = higher chance
+                    
+                    if (getUser().level().random.nextFloat() < destructionChance) {
+                        if (getUser().level().getBlockState(pos).getDestroySpeed(getUser().level(), pos) >= 0) {
+                            getUser().level().destroyBlock(pos, getUser().level().random.nextFloat() < 0.7f);
+                        }
+                    }
                 }
             }
         }
     }
 
     /**
-     * Damage entities along the beam path - more precise than vanilla lightning
+     * ICE & FIRE STYLE Entity Damage System
+     * Damages all entities along the full beam path to target
      */
     private void damageEntitiesInBeam(Vec3 target) {
         Vec3 mouthPos = getUser().getMouthPosition();
         Vec3 direction = target.subtract(mouthPos).normalize();
         double distance = mouthPos.distanceTo(target);
 
-        // Check for entities along beam path
-        int segments = Math.max(1, (int)(distance / 2.0)); // Check every 2 blocks
+        // Segment the beam for entity detection
+        int segments = Math.max(1, (int)(distance / 2.0));
 
         for (int i = 0; i <= segments; i++) {
             double progress = (double)i / segments;
@@ -269,79 +259,47 @@ public class EnhancedLightningBeamAbility extends Ability<LightningDragonEntity>
                             !recentlyDamaged.contains(entity));
 
             for (LivingEntity entity : nearbyEntities) {
-                // Damage with intensity based on distance from beam center
                 double distFromBeam = entity.position().distanceTo(checkPos);
-                float damage = (float)(8.0 * Math.max(0.1, 1.0 - distFromBeam / 1.5));
+                float damage = (float)(12.0 * Math.max(0.1, 1.0 - distFromBeam / 1.5));
 
                 if (entity.hurt(getUser().damageSources().mobAttack(getUser()), damage)) {
-                    // Electric effects
-                    entity.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, 60, 2, false, false));
+                    // Lightning effects like Ice & Fire
+                    entity.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, 80, 2));
 
                     // Knockback along beam direction
-                    Vec3 knockback = direction.scale(0.5);
+                    Vec3 knockback = direction.scale(0.8);
                     entity.setDeltaMovement(entity.getDeltaMovement().add(knockback));
 
-                    // Prevent multiple hits this tick
                     recentlyDamaged.add(entity);
-
-                    // Create hit effect
-                    createHitEffect(entity.position());
                 }
             }
         }
 
-        // Clear damage set periodically to allow re-hitting
-        if (getTicksInUse() % 10 == 0) {
+        // Clear damage set periodically
+        if (getTicksInUse() % 8 == 0) {
             recentlyDamaged.clear();
         }
     }
 
-    private void createHitEffect(Vec3 pos) {
-        // Explosion of electric particles when beam hits something
-        for (int i = 0; i < 8; i++) {
-            getUser().level().addParticle(ParticleTypes.ELECTRIC_SPARK,
-                    pos.x, pos.y + 1, pos.z,
-                    (getUser().getRandom().nextDouble() - 0.5) * 0.3,
-                    getUser().getRandom().nextDouble() * 0.3,
-                    (getUser().getRandom().nextDouble() - 0.5) * 0.3);
-        }
+    public boolean isFinished() {
+        return getTicksInUse() >= TOTAL_TIME;
     }
-
 
     @Override
     public void end() {
         super.end();
         getUser().setAttacking(false);
         getUser().setHasLightningTarget(false);
+        getUser().setLightningStreamActive(false);
+        getUser().setLightningStreamProgress(0.0F);
+
         if (getUser().isFlying()) {
             getUser().setHovering(false);
         }
 
-        // Clear lightning target
-        getUser().setHasLightningTarget(false);
         recentlyDamaged.clear();
-
-        // Final impact effect at beam end
-        if (lastBeamEnd != null && !getUser().level().isClientSide) {
-            createFinalImpact(lastBeamEnd);
-        }
-    }
-
-    private void createFinalImpact(Vec3 pos) {
-        // Create a final explosion effect where the beam was hitting
-        for (int i = 0; i < 20; i++) {
-            double angle = i * Math.PI * 2 / 20;
-            double radius = 2.0;
-            double x = pos.x + Math.cos(angle) * radius;
-            double z = pos.z + Math.sin(angle) * radius;
-
-            getUser().level().addParticle(ParticleTypes.ELECTRIC_SPARK,
-                    x, pos.y, z, 0, 0.2, 0);
-        }
-
-        // Impact sound
-        getUser().level().playSound(null, pos.x, pos.y, pos.z,
-                SoundEvents.LIGHTNING_BOLT_IMPACT, SoundSource.HOSTILE, 1.5f, 1.0f);
+        burnProgress = 0;
+        phase = 0;
     }
 
     @Override

@@ -2,9 +2,12 @@ package com.leon.lightningdragon.client.renderer;
 
 import com.leon.lightningdragon.client.model.LightningDragonModel;
 import com.leon.lightningdragon.entity.LightningDragonEntity;
+import net.minecraft.client.renderer.culling.Frustum;
+import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.api.distmarker.OnlyIn;
+import org.jetbrains.annotations.NotNull;
 import software.bernie.geckolib.renderer.GeoEntityRenderer;
 import software.bernie.geckolib.cache.object.BakedGeoModel;
 import software.bernie.geckolib.cache.object.GeoBone;
@@ -13,17 +16,38 @@ import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.util.Mth;
+import com.leon.lightningdragon.client.renderer.LightningRender;
+import com.leon.lightningdragon.client.renderer.LightningBoltData;
 
 /**
  * FIXED Lightning Dragon Renderer with proper head bone tracking
  */
 @OnlyIn(Dist.CLIENT)
 public class LightningDragonRenderer extends GeoEntityRenderer<LightningDragonEntity> {
+    private final LightningRender lightningRender = new LightningRender();
 
-    public LightningDragonRenderer(EntityRendererProvider.Context ctx) {
-        super(ctx, new LightningDragonModel());
+    public LightningDragonRenderer(EntityRendererProvider.Context renderManager) {
+        super(renderManager, new LightningDragonModel());
         this.shadowRadius = 0.8f;
     }
+
+    @Override
+    public boolean shouldRender(@NotNull LightningDragonEntity dragon, @NotNull Frustum camera, double camX, double camY, double camZ) {
+        if (super.shouldRender(dragon, camera, camX, camY, camZ)) {
+            return true;
+        }
+
+        // Also render if lightning beam is active and visible
+        if (dragon.hasLightningTarget()) {
+            Vec3 headPos = dragon.getMouthPosition();
+            Vec3 targetPos = new Vec3(dragon.getLightningTargetX(), dragon.getLightningTargetY(), dragon.getLightningTargetZ());
+            return camera.isVisible(new AABB(headPos.x, headPos.y, headPos.z, targetPos.x, targetPos.y, targetPos.z));
+        }
+
+        return false;
+    }
+
+
 
     @Override
     public void preRender(PoseStack poseStack,
@@ -50,158 +74,31 @@ public class LightningDragonRenderer extends GeoEntityRenderer<LightningDragonEn
         applyHeadTracking(entity, model, partialTick);
     }
 
+    /**
+     * ICE & FIRE STYLE Bounded Scale Function
+     * Maps input scale to a bounded range for consistent lightning sizing
+     */
+    private static float getBoundedScale(float scale) {
+        float min = 0.5F;
+        float max = 2.0F;
+        return min + scale * (max - min);
+    }
+
     @Override
-    public void postRender(PoseStack poseStack,
-                           LightningDragonEntity entity,
-                           BakedGeoModel model,
-                           MultiBufferSource bufferSource,
-                           VertexConsumer buffer,
-                           boolean isReRender,
-                           float partialTick,
-                           int packedLight,
-                           int packedOverlay,
+    public void postRender(PoseStack poseStack, LightningDragonEntity entity, BakedGeoModel model,
+                           MultiBufferSource bufferSource, VertexConsumer buffer, boolean isReRender,
+                           float partialTick, int packedLight, int packedOverlay,
                            float red, float green, float blue, float alpha) {
 
         super.postRender(poseStack, entity, model, bufferSource, buffer, isReRender,
                 partialTick, packedLight, packedOverlay, red, green, blue, alpha);
 
-        // LIGHTNING BEAM RENDERING - renders AFTER the dragon model
+        // PROFESSIONAL ICE & FIRE LIGHTNING RENDERING
         if (entity.hasLightningTarget()) {
-            renderLightningBeam(poseStack, bufferSource, entity, partialTick);
+            renderIceAndFireLightning(entity, poseStack, bufferSource, partialTick);
         }
     }
 
-    /**
-     * Renders the lightning beam from dragon's mouth to target
-     */
-    private void renderLightningBeam(PoseStack poseStack, MultiBufferSource bufferSource,
-                                     LightningDragonEntity entity, float partialTick) {
-
-        // Get lightning target from entity data
-        Vec3 target = new Vec3(
-                entity.getLightningTargetX(),
-                entity.getLightningTargetY(),
-                entity.getLightningTargetZ()
-        );
-
-        // Get mouth position
-        Vec3 mouthPos = entity.getMouthPosition();
-
-        double distance = mouthPos.distanceTo(target);
-        if (distance > 50.0) { // Max beam range
-            return;
-        }
-
-        poseStack.pushPose();
-
-        // Move to world origin for absolute positioning
-        poseStack.translate(-entity.getX(), -entity.getY(), -entity.getZ());
-
-        // Create the main lightning beam
-        renderMainBeam(poseStack, bufferSource, mouthPos, target, partialTick, entity);
-
-        // Add some branching lightning for realism
-        renderBeamBranches(poseStack, bufferSource, mouthPos, target, partialTick, entity);
-
-        poseStack.popPose();
-    }
-
-    private void renderMainBeam(PoseStack poseStack, MultiBufferSource bufferSource,
-                                Vec3 start, Vec3 end, float partialTick, LightningDragonEntity entity) {
-
-        // Calculate beam properties
-        Vec3 direction = end.subtract(start);
-        double distance = direction.length();
-
-        if (distance < 0.5) return; // Too close, don't render
-
-        direction = direction.normalize();
-
-        // Create lightning beam using particles (much easier for 1.20.1)
-        int segments = Math.max(8, (int)(distance * 2));
-
-        for (int i = 0; i <= segments; i++) {
-            double progress = (double)i / segments;
-
-            // Add zigzag randomness for natural lightning look
-            java.util.Random random = new java.util.Random(entity.tickCount / 3 + i);
-            Vec3 offset = new Vec3(
-                    (random.nextDouble() - 0.5) * 0.5,
-                    (random.nextDouble() - 0.5) * 0.5,
-                    (random.nextDouble() - 0.5) * 0.5
-            );
-
-            Vec3 beamPos = start.add(direction.scale(progress * distance)).add(offset);
-
-            // Spawn electric particles for the beam effect
-            if (entity.level().isClientSide) {
-                // Main beam particles
-                for (int j = 0; j < 3; j++) {
-                    entity.level().addParticle(
-                            net.minecraft.core.particles.ParticleTypes.ELECTRIC_SPARK,
-                            beamPos.x + (random.nextDouble() - 0.5) * 0.2,
-                            beamPos.y + (random.nextDouble() - 0.5) * 0.2,
-                            beamPos.z + (random.nextDouble() - 0.5) * 0.2,
-                            0, 0, 0
-                    );
-                }
-
-                // Add some white sparks for intensity
-                if (random.nextFloat() < 0.7f) {
-                    entity.level().addParticle(
-                            net.minecraft.core.particles.ParticleTypes.FIREWORK,
-                            beamPos.x, beamPos.y, beamPos.z,
-                            (random.nextDouble() - 0.5) * 0.1,
-                            (random.nextDouble() - 0.5) * 0.1,
-                            (random.nextDouble() - 0.5) * 0.1
-                    );
-                }
-            }
-        }
-    }
-
-    private void renderBeamBranches(PoseStack poseStack, MultiBufferSource bufferSource,
-                                    Vec3 start, Vec3 end, float partialTick, LightningDragonEntity entity) {
-
-        // Only render branches occasionally to avoid lag
-        if (entity.tickCount % 4 != 0) return;
-
-        Vec3 direction = end.subtract(start);
-        double distance = direction.length();
-
-        // Create 2-3 random branches along the main beam
-        java.util.Random random = new java.util.Random(entity.tickCount / 4 + 42);
-
-        for (int branch = 0; branch < 2; branch++) {
-            // Pick a random point along the beam
-            double branchProgress = 0.3 + random.nextDouble() * 0.4; // Middle 40% of beam
-            Vec3 branchStart = start.add(direction.scale(branchProgress));
-
-            // Create a short branch in a random direction
-            Vec3 branchDirection = new Vec3(
-                    (random.nextDouble() - 0.5) * 2,
-                    (random.nextDouble() - 0.5) * 2,
-                    (random.nextDouble() - 0.5) * 2
-            ).normalize();
-
-            double branchLength = 1.0 + random.nextDouble() * 2.0; // 1-3 block branches
-            int branchSegments = (int)(branchLength * 3);
-
-            // Render branch using particles
-            for (int i = 0; i <= branchSegments; i++) {
-                double progress = (double)i / branchSegments;
-                Vec3 branchPos = branchStart.add(branchDirection.scale(progress * branchLength));
-
-                if (entity.level().isClientSide && random.nextFloat() < 0.6f) {
-                    entity.level().addParticle(
-                            net.minecraft.core.particles.ParticleTypes.ELECTRIC_SPARK,
-                            branchPos.x, branchPos.y, branchPos.z,
-                            0, 0, 0
-                    );
-                }
-            }
-        }
-    }
 
     /**
      * ACTUAL HEAD BONE TRACKING like vanilla mobs
@@ -244,6 +141,41 @@ public class LightningDragonRenderer extends GeoEntityRenderer<LightningDragonEn
      */
     private void resetHeadBones(BakedGeoModel model) {
         model.getBone("head").ifPresent(headBone -> headBone.updateRotation(0, 0, 0));
+    }
+
+    /**
+     * AUTHENTIC ICE & FIRE LIGHTNING RENDERING
+     * Exact implementation style from RenderLightningDragon.java with professional bolt generation
+     */
+    private void renderIceAndFireLightning(LightningDragonEntity entity, PoseStack poseStack, 
+                                         MultiBufferSource bufferSource, float partialTick) {
+        // Distance check like Ice & Fire
+        double dist = entity.distanceTo(net.minecraft.client.Minecraft.getInstance().player);
+        if (dist > Math.max(256, net.minecraft.client.Minecraft.getInstance().options.renderDistance().get() * 16F)) {
+            return;
+        }
+        
+        Vec3 headPos = entity.getHeadPosition();
+        Vec3 targetPos = new Vec3(entity.getLightningTargetX(), entity.getLightningTargetY(), entity.getLightningTargetZ());
+        
+        poseStack.pushPose();
+        poseStack.translate(-entity.getX(), -entity.getY(), -entity.getZ());
+        
+        // PROFESSIONAL ICE & FIRE BOLT GENERATION
+        float energyScale = 0.4F * entity.getScale();
+        LightningBoltData bolt = new LightningBoltData(
+                LightningBoltData.BoltRenderInfo.ELECTRICITY, 
+                headPos, 
+                targetPos, 
+                15
+        ).size(0.05F * getBoundedScale(energyScale))
+                .lifespan(4)
+                .spawn(LightningBoltData.SpawnFunction.NO_DELAY);
+        
+        lightningRender.update(entity, bolt, partialTick);
+        lightningRender.render(partialTick, poseStack, bufferSource);
+        
+        poseStack.popPose();
     }
 
     /**

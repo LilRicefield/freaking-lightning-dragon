@@ -71,7 +71,6 @@ public abstract class Ability<T extends LivingEntity> {
         this.animation = animation;
     }
     public <E extends GeoEntity> PlayState animationPredicate(AnimationState<E> state) {
-        System.out.println("Ability predicate called - animation: " + animation + ", isUsing: " + isUsing); //DEBUGGGGGG
         if (animation != null && isUsing) {
             state.setAndContinue(animation);
             return PlayState.CONTINUE;

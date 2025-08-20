@@ -187,6 +187,10 @@ public class LightningDragonEntity extends TamableAnimal implements GeoEntity, F
             SynchedEntityData.defineId(LightningDragonEntity.class, EntityDataSerializers.FLOAT);
     private static final EntityDataAccessor<Float> LIGHTNING_TARGET_Z =
             SynchedEntityData.defineId(LightningDragonEntity.class, EntityDataSerializers.FLOAT);
+    private static final EntityDataAccessor<Float> LIGHTNING_STREAM_PROGRESS =
+            SynchedEntityData.defineId(LightningDragonEntity.class, EntityDataSerializers.FLOAT);
+    private static final EntityDataAccessor<Boolean> LIGHTNING_STREAM_ACTIVE =
+            SynchedEntityData.defineId(LightningDragonEntity.class, EntityDataSerializers.BOOLEAN);
 
 
     // ===== STATE VARIABLES =====
@@ -295,6 +299,8 @@ public class LightningDragonEntity extends TamableAnimal implements GeoEntity, F
         this.entityData.define(LIGHTNING_TARGET_X, 0.0F);
         this.entityData.define(LIGHTNING_TARGET_Y, 0.0F);
         this.entityData.define(LIGHTNING_TARGET_Z, 0.0F);
+        this.entityData.define(LIGHTNING_STREAM_PROGRESS, 0.0F);
+        this.entityData.define(LIGHTNING_STREAM_ACTIVE, false);
 
     }
 
@@ -322,6 +328,26 @@ public class LightningDragonEntity extends TamableAnimal implements GeoEntity, F
 
     public float getLightningTargetZ() {
         return this.entityData.get(LIGHTNING_TARGET_Z);
+    }
+
+    public void setLightningStreamProgress(float progress) {
+        this.entityData.set(LIGHTNING_STREAM_PROGRESS, progress);
+    }
+
+    public float getLightningStreamProgress() {
+        return this.entityData.get(LIGHTNING_STREAM_PROGRESS);
+    }
+
+    public void setLightningStreamActive(boolean active) {
+        this.entityData.set(LIGHTNING_STREAM_ACTIVE, active);
+    }
+
+    public boolean isLightningStreamActive() {
+        return this.entityData.get(LIGHTNING_STREAM_ACTIVE);
+    }
+
+    public Vec3 getLightningTargetVec() {
+        return new Vec3(getLightningTargetX(), getLightningTargetY(), getLightningTargetZ());
     }
 
     // Combat distance constants
@@ -1374,6 +1400,8 @@ public class LightningDragonEntity extends TamableAnimal implements GeoEntity, F
         tag.putBoolean("UsingAirNav", usingAirNav);
         tag.putInt("AbilityCooldown", abilityCooldown);
         tag.putFloat("SitProgress", sitProgress);
+        tag.putFloat("LightningStreamProgress", getLightningStreamProgress());
+        tag.putBoolean("LightningStreamActive", isLightningStreamActive());
         animationController.writeToNBT(tag);
     }
 
@@ -1391,6 +1419,8 @@ public class LightningDragonEntity extends TamableAnimal implements GeoEntity, F
         this.abilityCooldown = tag.getInt("AbilityCooldown");
         this.sitProgress = tag.getFloat("SitProgress");
         this.prevSitProgress = this.sitProgress;
+        this.setLightningStreamProgress(tag.getFloat("LightningStreamProgress"));
+        this.setLightningStreamActive(tag.getBoolean("LightningStreamActive"));
         animationController.readFromNBT(tag);
 
         if (this.usingAirNav) {
