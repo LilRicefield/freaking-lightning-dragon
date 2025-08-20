@@ -101,12 +101,12 @@ public class EnhancedLightningBeamAbility extends Ability<LightningDragonEntity>
 
         // Charging particles
         if (getUser().level().isClientSide) {
-            Vec3 headPos = getUser().getMouthPosition();
+            Vec3 mouthPos = getUser().getMouthPosition();
             for (int i = 0; i < 3; i++) {
                 getUser().level().addParticle(ParticleTypes.ELECTRIC_SPARK,
-                        headPos.x + (getUser().getRandom().nextDouble() - 0.5) * 1.5,
-                        headPos.y + (getUser().getRandom().nextDouble() - 0.5) * 1.5,
-                        headPos.z + (getUser().getRandom().nextDouble() - 0.5) * 1.5,
+                        mouthPos.x + (getUser().getRandom().nextDouble() - 0.5) * 1.5,
+                        mouthPos.y + (getUser().getRandom().nextDouble() - 0.5) * 1.5,
+                        mouthPos.z + (getUser().getRandom().nextDouble() - 0.5) * 1.5,
                         0, 0, 0);
             }
         }
@@ -159,8 +159,8 @@ public class EnhancedLightningBeamAbility extends Ability<LightningDragonEntity>
      * Much better than spamming vanilla lightning bolts
      */
     private void createLightningBeam(Vec3 target) {
-        Vec3 headPos = getHeadPosition();
-        Vec3 direction = target.subtract(headPos);
+        Vec3 mouthPos = getUser().getMouthPosition();
+        Vec3 direction = target.subtract(mouthPos);
         double distance = direction.length();
 
         if (distance < 0.5) return;
@@ -168,10 +168,10 @@ public class EnhancedLightningBeamAbility extends Ability<LightningDragonEntity>
         direction = direction.normalize();
 
         // Create main beam with multiple branches
-        createMainBeam(headPos, target, direction, distance);
+        createMainBeam(mouthPos, target, direction, distance);
 
         // Create side branches for more realistic lightning
-        createBeamBranches(headPos, direction, distance);
+        createBeamBranches(mouthPos, direction, distance);
 
         // Store last beam end for lingering effects
         lastBeamEnd = target;
@@ -252,16 +252,16 @@ public class EnhancedLightningBeamAbility extends Ability<LightningDragonEntity>
      * Damage entities along the beam path - more precise than vanilla lightning
      */
     private void damageEntitiesInBeam(Vec3 target) {
-        Vec3 headPos = getHeadPosition();
-        Vec3 direction = target.subtract(headPos).normalize();
-        double distance = headPos.distanceTo(target);
+        Vec3 mouthPos = getUser().getMouthPosition();
+        Vec3 direction = target.subtract(mouthPos).normalize();
+        double distance = mouthPos.distanceTo(target);
 
         // Check for entities along beam path
         int segments = Math.max(1, (int)(distance / 2.0)); // Check every 2 blocks
 
         for (int i = 0; i <= segments; i++) {
             double progress = (double)i / segments;
-            Vec3 checkPos = headPos.add(direction.scale(progress * distance));
+            Vec3 checkPos = mouthPos.add(direction.scale(progress * distance));
 
             List<LivingEntity> nearbyEntities = getUser().level().getEntitiesOfClass(LivingEntity.class,
                     new AABB(checkPos.subtract(1.5, 1.5, 1.5), checkPos.add(1.5, 1.5, 1.5)),
@@ -307,12 +307,6 @@ public class EnhancedLightningBeamAbility extends Ability<LightningDragonEntity>
         }
     }
 
-    private Vec3 getHeadPosition() {
-        // Get position of dragon's head for beam origin
-        Vec3 basePos = getUser().position().add(0, getUser().getBbHeight() * 0.8, 0);
-        Vec3 lookVec = getUser().getLookAngle();
-        return basePos.add(lookVec.scale(1.5)); // Slightly forward from head
-    }
 
     @Override
     public void end() {

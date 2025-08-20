@@ -324,45 +324,129 @@ public class LightningDragonEntity extends TamableAnimal implements GeoEntity, F
         return this.entityData.get(LIGHTNING_TARGET_Z);
     }
 
+    // Combat distance constants
+    private static final double BEAM_RANGE = 30.0;      // Use beam at very long range
+    private static final double BREATH_RANGE = 8.0;     // Use breath at medium range  
+    private static final double MELEE_RANGE = 6.0;      // Land and use melee at close range
+
     // ===== ABILITY SYSTEM METHODS =====
     public boolean tryUseRangedAbility() {
         LivingEntity target = getTarget();
         if (target == null || !canUseAbility()) return false;
 
-        double distance = distanceTo(target);
+        double distance = getCachedDistanceToTarget();
 
-        // Priority order based on distance - more decisive than probability
-        if (distance >= 20) {
-            // Long range - try beam first, then breath as fallback
+        // Strategic distance-based combat
+        if (distance >= BEAM_RANGE) {
+            // Very long range - precision beam attack
             Ability<LightningDragonEntity> beamAbility = LIGHTNING_BEAM_ABILITY.createAbility(this);
             if (beamAbility.tryAbility()) {
                 sendAbilityMessage(LIGHTNING_BEAM_ABILITY);
                 return true;
             }
-
+        } else if (distance >= BREATH_RANGE) {
+            // Medium range - breath attack preferred
+            Ability<LightningDragonEntity> breathAbility = LIGHTNING_BREATH_ABILITY.createAbility(this);
+            if (breathAbility.tryAbility()) {
+                sendAbilityMessage(LIGHTNING_BREATH_ABILITY);
+                return true;
+            }
+            
+            // Fallback to beam if breath fails
+            Ability<LightningDragonEntity> beamAbility = LIGHTNING_BEAM_ABILITY.createAbility(this);
+            if (beamAbility.tryAbility()) {
+                sendAbilityMessage(LIGHTNING_BEAM_ABILITY);
+                return true;
+            }
+        } else if (distance >= MELEE_RANGE) {
+            // Close range - try ground abilities or consider landing
+            if (isFlying()) {
+                // Try aerial abilities first
+                Ability<LightningDragonEntity> wingLightning = WING_LIGHTNING_ABILITY.createAbility(this);
+                if (wingLightning.tryAbility()) {
+                    sendAbilityMessage(WING_LIGHTNING_ABILITY);
+                    return true;
+                }
+                
+                // Consider landing for better combat options
+                if (canLandSafely()) {
+                    initiateAggressiveLanding();
+                    return false; // Will attack after landing
+                }
+            } else {
+                // Ground-based close combat
+                Ability<LightningDragonEntity> thunderStomp = THUNDER_STOMP_ABILITY.createAbility(this);
+                if (thunderStomp.tryAbility()) {
+                    sendAbilityMessage(THUNDER_STOMP_ABILITY);
+                    return true;
+                }
+            }
+            
+            // Fallback to breath at close range
             Ability<LightningDragonEntity> breathAbility = LIGHTNING_BREATH_ABILITY.createAbility(this);
             if (breathAbility.tryAbility()) {
                 sendAbilityMessage(LIGHTNING_BREATH_ABILITY);
                 return true;
             }
         } else {
-            // Close range - try breath first, then beam as fallback
-            Ability<LightningDragonEntity> breathAbility = LIGHTNING_BREATH_ABILITY.createAbility(this);
-            if (breathAbility.tryAbility()) {
-                sendAbilityMessage(LIGHTNING_BREATH_ABILITY);
-                return true;
-            }
-
-            Ability<LightningDragonEntity> beamAbility = LIGHTNING_BEAM_ABILITY.createAbility(this);
-            if (beamAbility.tryAbility()) {
-                sendAbilityMessage(LIGHTNING_BEAM_ABILITY);
-                return true;
+            // Very close range - melee combat
+            if (isFlying()) {
+                // Must land for melee
+                if (canLandSafely()) {
+                    initiateAggressiveLanding();
+                }
+                return false;
+            } else {
+                // Ground melee attacks
+                Ability<LightningDragonEntity> electricBite = ELECTRIC_BITE_ABILITY.createAbility(this);
+                if (electricBite.tryAbility()) {
+                    sendAbilityMessage(ELECTRIC_BITE_ABILITY);
+                    return true;
+                }
+                
+                // Thunder stomp as backup
+                Ability<LightningDragonEntity> thunderStomp = THUNDER_STOMP_ABILITY.createAbility(this);
+                if (thunderStomp.tryAbility()) {
+                    sendAbilityMessage(THUNDER_STOMP_ABILITY);
+                    return true;
+                }
             }
         }
 
         return false;
     }
 
+    // Landing safety and combat landing methods
+    private boolean canLandSafely() {
+        if (!isFlying()) return true; // Already on ground
+        
+        // Check if there's solid ground within reasonable distance below
+        BlockPos currentPos = blockPosition();
+        for (int y = currentPos.getY() - 1; y >= currentPos.getY() - 10; y--) {
+            BlockPos checkPos = new BlockPos(currentPos.getX(), y, currentPos.getZ());
+            if (!level().getBlockState(checkPos).isAir() && 
+                level().getBlockState(checkPos.above()).getCollisionShape(level(), checkPos.above()).isEmpty()) {
+                // Found solid ground with space above
+                return true;
+            }
+        }
+        return false; // No safe landing spot found
+    }
+
+    private void initiateAggressiveLanding() {
+        if (!isFlying()) return;
+        
+        // Force landing for combat
+        setLanding(true);
+        setRunning(true); // Make approach more aggressive
+        
+        // Stop current navigation and hover briefly before descent  
+        getNavigation().stop();
+        setHovering(true);
+        
+        // Brief delay before full descent
+        landingTimer = 0;
+    }
 
     public Ability<LightningDragonEntity> getActiveAbility() {
         return activeAbility;
@@ -410,33 +494,61 @@ public class LightningDragonEntity extends TamableAnimal implements GeoEntity, F
         }
     }
     // For general head position (eye beams, head tracking, etc.)
+    // Uses actual head bone coordinates from lightning_dragon.geo.json
     public Vec3 getHeadPosition() {
-        float scale = 4.5f;
+        float scale = MODEL_SCALE; // Use the constant instead of magic number
         float bodyYaw = (float) Math.toRadians(this.yBodyRot);
+        float headPitch = (float) Math.toRadians(this.getXRot());
 
-        // head bone pivot
+        // Head bone pivot from geo file: [0, 6.75, -13.35] with rotation [2.5, 0, 0]
         double headForward = (-13.35 / 16.0) * scale;
         double headUp = (6.75 / 16.0) * scale;
 
-        double offsetX = Math.sin(bodyYaw) * headForward;
-        double offsetZ = Math.cos(bodyYaw) * headForward;
+        // Apply head rotation (2.5 degrees base pitch from geo file)
+        double basePitch = Math.toRadians(2.5);
+        double totalPitch = basePitch + headPitch;
 
-        return this.position().add(offsetX, headUp, offsetZ);
+        // Calculate position with proper transformation
+        double cosYaw = Math.cos(bodyYaw);
+        double sinYaw = Math.sin(bodyYaw);
+        double cosPitch = Math.cos(totalPitch);
+        double sinPitch = Math.sin(totalPitch);
+
+        // Transform head bone position considering both yaw and pitch
+        double offsetX = sinYaw * headForward * cosPitch;
+        double offsetY = headUp + headForward * sinPitch;
+        double offsetZ = cosYaw * headForward * cosPitch;
+
+        return this.position().add(offsetX, offsetY, offsetZ);
     }
 
     // For breath attacks specifically
+    // Uses mouth_origin bone coordinates from lightning_dragon.geo.json
     public Vec3 getMouthPosition() {
-        float scale = 4.5f;
+        float scale = MODEL_SCALE; // Use the constant
         float bodyYaw = (float) Math.toRadians(this.yBodyRot);
+        float headPitch = (float) Math.toRadians(this.getXRot());
 
-        // mouth_origin bone pivot
-        double mouthForward = (-15.0 / 16.0) * scale;
-        double mouthUp = (6.25 / 16.0) * scale;
+        // mouth_origin bone pivot from geo file: [0, 6.5, -14.35] (child of head)
+        // Head bone base pitch: 2.5 degrees
+        double mouthForward = (-14.35 / 16.0) * scale;
+        double mouthUp = (6.5 / 16.0) * scale;
 
-        double offsetX = Math.sin(bodyYaw) * mouthForward;
-        double offsetZ = Math.cos(bodyYaw) * mouthForward;
+        // Apply head rotation
+        double basePitch = Math.toRadians(2.5);
+        double totalPitch = basePitch + headPitch;
 
-        return this.position().add(offsetX, mouthUp, offsetZ);
+        double cosYaw = Math.cos(bodyYaw);
+        double sinYaw = Math.sin(bodyYaw);
+        double cosPitch = Math.cos(totalPitch);
+        double sinPitch = Math.sin(totalPitch);
+
+        // Transform mouth position considering both yaw and pitch
+        double offsetX = sinYaw * mouthForward * cosPitch;
+        double offsetY = mouthUp + mouthForward * sinPitch;
+        double offsetZ = cosYaw * mouthForward * cosPitch;
+
+        return this.position().add(offsetX, offsetY, offsetZ);
     }
 
     public void forceEndActiveAbility() {
@@ -1360,8 +1472,72 @@ public class LightningDragonEntity extends TamableAnimal implements GeoEntity, F
     }
 
     public List<Projectile> getCachedNearbyProjectiles() {
-        return getCachedValue("nearbyProjectiles", 3, () -> 
-            DragonMathUtil.getEntitiesNearby(this, Projectile.class, 30.0));
+        return getCachedValue("nearbyProjectiles", 3, () ->
+                DragonMathUtil.getEntitiesNearby(this, Projectile.class, 30.0));
+    }
+
+    // Cache head position - used by abilities and rendering
+    public Vec3 getCachedHeadPosition() {
+        return getCachedValue("headPosition", 2, this::getHeadPosition);
+    }
+
+    // Cache mouth position - used by breath/beam attacks
+    public Vec3 getCachedMouthPosition() {
+        return getCachedValue("mouthPosition", 2, this::getMouthPosition);
+    }
+
+    // Cache distance to current target - used in combat decisions
+    public double getCachedDistanceToTarget() {
+        return getCachedValue("targetDistance", 3, () -> {
+            LivingEntity target = getTarget();
+            return target != null ? distanceTo(target) : Double.MAX_VALUE;
+        });
+    }
+
+    // Cache current block position - used for pathfinding/ground checks
+    public BlockPos getCachedBlockPosition() {
+        return getCachedValue("blockPosition", 5, this::blockPosition);
+    }
+
+    // Cache horizontal flight speed - used in physics calculations
+    public double getCachedHorizontalSpeed() {
+        return getCachedValue("horizontalSpeed", 1, () -> {
+            Vec3 velocity = getDeltaMovement();
+            return Math.sqrt(velocity.x * velocity.x + velocity.z * velocity.z);
+        });
+    }
+
+    // Cache body rotation trigonometry - used in position calculations
+    private Vec3 cachedBodyRotationVec = Vec3.ZERO;
+    private int bodyRotationCacheTime = -1;
+    public Vec3 getCachedBodyRotationVector() {
+        if (tickCount != bodyRotationCacheTime) {
+            float bodyYaw = (float) Math.toRadians(this.yBodyRot);
+            cachedBodyRotationVec = new Vec3(Math.sin(bodyYaw), 0, Math.cos(bodyYaw));
+            bodyRotationCacheTime = tickCount;
+        }
+        return cachedBodyRotationVec;
+    }
+
+    // Cache ground level check - expensive terrain scanning
+    private Boolean cachedCanLandSafely = null;
+    private int landSafetyCacheTime = -1;
+    public boolean getCachedCanLandSafely() {
+        if (tickCount - landSafetyCacheTime >= 10 || cachedCanLandSafely == null) {
+            cachedCanLandSafely = canLandSafely();
+            landSafetyCacheTime = tickCount;
+        }
+        return cachedCanLandSafely;
+    }
+
+    // Cache nearby hostile entities - used for threat assessment
+    public List<LivingEntity> getCachedNearbyHostiles() {
+        return getCachedValue("nearbyHostiles", 8, () -> {
+            return level().getEntitiesOfClass(LivingEntity.class, getBoundingBox().inflate(16.0),
+                    entity -> entity != this && entity != getOwner() && 
+                             entity.isAlive() && !isTame() || 
+                             (entity instanceof Player player && !player.isCreative()));
+        });
     }
 
     @SuppressWarnings("unchecked")
