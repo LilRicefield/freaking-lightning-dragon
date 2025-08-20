@@ -630,11 +630,6 @@
 							"lerp_mode": "catmullrom"
 						}
 					}
-				},
-				"walkRunController": {
-					"position": {
-						"vector": [0, 0, 0]
-					}
 				}
 			}
 		},
@@ -3250,11 +3245,6 @@
 							"lerp_mode": "catmullrom"
 						}
 					}
-				},
-				"takeoffController": {
-					"position": {
-						"vector": [1, 0, 0]
-					}
 				}
 			}
 		},
@@ -4181,10 +4171,45 @@
 							"lerp_mode": "catmullrom"
 						}
 					}
-				},
+				}
+			}
+		},
+		"animation.lightning_dragon.walk_switch": {
+			"loop": true,
+			"bones": {
+				"walkRunController": {
+					"position": {
+						"vector": [0, 0, 0]
+					}
+				}
+			}
+		},
+		"animation.lightning_dragon.run_switch": {
+			"loop": true,
+			"bones": {
 				"walkRunController": {
 					"position": {
 						"vector": [1, 0, 0]
+					}
+				}
+			}
+		},
+		"animation.lightning_dragon.glide_switch": {
+			"loop": true,
+			"bones": {
+				"glideController": {
+					"position": {
+						"vector": [1, 0, 0]
+					}
+				}
+			}
+		},
+		"animation.lightning_dragon.flap_switch": {
+			"loop": true,
+			"bones": {
+				"glideController": {
+					"position": {
+						"vector": [0, 0, 0]
 					}
 				}
 			}

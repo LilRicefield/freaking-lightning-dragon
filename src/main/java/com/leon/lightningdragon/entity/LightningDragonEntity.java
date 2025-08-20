@@ -67,6 +67,9 @@ import software.bernie.geckolib.core.animation.*;
 
 //WHO ARE THESE SUCKAS
 import org.jetbrains.annotations.Nullable;
+import software.bernie.geckolib.core.animation.AnimationState;
+import software.bernie.geckolib.core.object.PlayState;
+
 import java.util.*;
 import java.util.function.Supplier;
 
@@ -116,6 +119,12 @@ public class LightningDragonEntity extends TamableAnimal implements GeoEntity, F
     public static final RawAnimation HURT = RawAnimation.begin().thenPlay("animation.lightning_dragon.hurt");
     public static final RawAnimation DODGE = RawAnimation.begin().thenPlay("animation.lightning_dragon.dodge");
     public static final RawAnimation ROAR = RawAnimation.begin().thenPlay("animation.lightning_dragon.roar");
+    public static final RawAnimation WALK_SWITCH = RawAnimation.begin().thenLoop("animation.lightning_dragon.walk_switch");
+    public static final RawAnimation RUN_SWITCH = RawAnimation.begin().thenLoop("animation.lightning_dragon.run_switch");
+
+    // ===== ANIMATIONS CONTROLLERS =====
+    private final AnimationController<LightningDragonEntity> walkRunController =
+            new AnimationController<>(this, "walk_run_switch", 4, this::walkRunPredicate);
 
 
     // Attack animations - these will be defined in the ability classes
@@ -1287,11 +1296,10 @@ public class LightningDragonEntity extends TamableAnimal implements GeoEntity, F
     // ===== GECKOLIB =====
     @Override
     public void registerControllers(AnimatableManager.ControllerRegistrar controllers) {
-        // Create your movement controller
         AnimationController<LightningDragonEntity> movementController =
                 new AnimationController<>(this, "movement", 8, animationController::handleMovementAnimation);
-
-        // THE MAGIC LINE - overrides all the linear bullshit in your JSON files
+        AnimationController<LightningDragonEntity> walkRunController =
+                new AnimationController<>(this, "walk_run_switch", 4, this::walkRunPredicate);
         movementController.setOverrideEasingType(EasingType.EASE_IN_OUT_SINE);
 
         // Add sound keyframe handler (keep your existing sound code)
@@ -1306,12 +1314,26 @@ public class LightningDragonEntity extends TamableAnimal implements GeoEntity, F
                 case "electric_charge" ->
                         level().playSound(null, getX(), getY(), getZ(), SoundEvents.LIGHTNING_BOLT_IMPACT,
                                 SoundSource.HOSTILE, 1.0f, 2.0f);
-                case "dragon_step" ->  // 🔧 ADD THIS
+                case "dragon_step" ->
                         this.playSound(ModSounds.DRAGON_STEP.get(), 0.9f, 0.9f + getRandom().nextFloat() * 0.2f);
             }
         });
+        controllers.add(walkRunController);
         controllers.add(movementController);
     }
+
+    //PREDICATES
+    private PlayState walkRunPredicate(AnimationState<LightningDragonEntity> state) {
+        if (isFlying()) return PlayState.STOP;
+        if (isActuallyRunning()) {
+            state.setAndContinue(RUN_SWITCH);
+        } else {
+            state.setAndContinue(WALK_SWITCH);
+        }
+        return PlayState.CONTINUE;
+    }
+
+
     @Override
     public AnimatableInstanceCache getAnimatableInstanceCache() {
         return geckoCache;
