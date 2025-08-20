@@ -122,17 +122,11 @@ public class LightningDragonEntity extends TamableAnimal implements GeoEntity, F
     public static final RawAnimation WALK_SWITCH = RawAnimation.begin().thenLoop("animation.lightning_dragon.walk_switch");
     public static final RawAnimation RUN_SWITCH = RawAnimation.begin().thenLoop("animation.lightning_dragon.run_switch");
 
-    // ===== ANIMATIONS CONTROLLERS =====
-    private final AnimationController<LightningDragonEntity> walkRunController =
-            new AnimationController<>(this, "walk_run_switch", 4, this::walkRunPredicate);
-
-
     // Attack animations - these will be defined in the ability classes
     public static final RawAnimation LIGHTNING_BREATH = RawAnimation.begin().thenPlay("animation.lightning_dragon.lightning_breath");
     public static final RawAnimation THUNDER_STOMP = RawAnimation.begin().thenPlay("animation.lightning_dragon.thunder_stomp");
     public static final RawAnimation WING_LIGHTNING = RawAnimation.begin().thenPlay("animation.lightning_dragon.wing_lightning");
     public static final RawAnimation ELECTRIC_BITE = RawAnimation.begin().thenPlay("animation.lightning_dragon.electric_bite");
-
 
     // ===== ABILITY SYSTEM =====
     public static final AbilityType<LightningDragonEntity, EnhancedLightningBeamAbility> LIGHTNING_BEAM_ABILITY =
