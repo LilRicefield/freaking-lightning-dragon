@@ -75,15 +75,16 @@ public class DragonFlightMoveHelper extends MoveControl {
 
         // === BANKING CALCULATION (THE KEY SAUCE) ===
         float yawChange = dragon.getYRot() - currentYaw;
+        float targetBanking = DragonMathUtil.calculateBanking(dragon.getYRot(), currentYaw, 45.0f);
         float newBanking = DragonMathUtil.approachDegreesSmooth(
                 dragon.getBanking(),
                 dragon.getPrevBanking(),
-                yawChange * 2.0f,  // Banking follows yaw change
+                targetBanking,  // Target the calculated banking
                 0.5f,              // Smooth approach speed
                 0.1f               // Acceleration
         );
         dragon.setPrevBanking(dragon.getBanking());
-        dragon.setBanking(Mth.clamp(newBanking, -45.0f, 45.0f));
+        dragon.setBanking(newBanking);
 
         // Body rotation follows head
         dragon.yBodyRot = dragon.getYRot();
@@ -92,37 +93,52 @@ public class DragonFlightMoveHelper extends MoveControl {
         float desiredPitch = (float) (-(Mth.atan2(-distY, horizontalDist) * 57.295776F));
         dragon.setXRot(Mth.approachDegrees(dragon.getXRot(), desiredPitch, MAX_PITCH_CHANGE));
 
-        // === SPEED MODULATION ===
+        // === ENHANCED SPEED MODULATION ===
         float yawDifference = Math.abs(Mth.wrapDegrees(dragon.getYRot() - currentYaw));
+        float absYawChange = Math.abs(yawChange);
+        
+        // Base speed factor adjustments
+        float targetSpeedFactor;
         if (yawDifference < 3.0F) {
             // Facing right direction - speed up
-            this.speedFactor = Mth.approach(this.speedFactor, SPEED_FACTOR_MAX, 0.05F);
+            targetSpeedFactor = SPEED_FACTOR_MAX;
         } else {
-            // Turning - slow down for control
-            this.speedFactor = Mth.approach(this.speedFactor, 0.6F, 0.1F);
+            // Turning - slow down based on turn severity using yawChange
+            float turnSeverity = Mth.clamp(absYawChange / 15.0f, 0.0f, 1.0f); // Normalize to 0-1
+            targetSpeedFactor = DragonMathUtil.lerpSmooth(0.6f, SPEED_FACTOR_MAX, 1.0f - turnSeverity, 
+                    DragonMathUtil.EasingFunction.EASE_OUT_SINE);
         }
-
-
+        
+        // Distance-based approach speed scaling using totalDist
+        float approachDistance = 15.0f; // Start slowing down within 15 blocks
+        if (totalDist < approachDistance) {
+            float approachFactor = (float) (totalDist / approachDistance);
+            // Use smooth easing for natural approach behavior
+            approachFactor = DragonMathUtil.easeOutSine(approachFactor);
+            targetSpeedFactor *= Mth.clamp(approachFactor + 0.3f, 0.3f, 1.0f); // Don't go below 30% speed
+        }
+        
+        this.speedFactor = Mth.approach(this.speedFactor, targetSpeedFactor, 0.05F);
 
         // === MOVEMENT APPLICATION ===
-        float yawRad = (dragon.getYRot() + 90.0F) * 0.017453292F; // Convert to radians
-        double xMotion = (double) (this.speedFactor * Mth.cos(yawRad)) * Math.abs(distX / totalDist);
-        double zMotion = (double) (this.speedFactor * Mth.sin(yawRad)) * Math.abs(distZ / totalDist);
-        double yMotion = (double) (this.speedFactor * Mth.sin(desiredPitch * 0.017453292F)) * Math.abs(distY / totalDist);
-
-        // Additive movement (smoother than direct setting)
-        Vec3 currentMotion = dragon.getDeltaMovement();
-        Vec3 addedMotion = new Vec3(xMotion, yMotion, zMotion);
-        dragon.setDeltaMovement(currentMotion.add(addedMotion.subtract(currentMotion).scale(0.1D)));
+        Vec3 targetPos = new Vec3(this.wantedX, this.wantedY, this.wantedZ);
+        double speed = this.speedFactor * 1.2;
+        
+        // Dynamic acceleration based on distance and turn severity
+        double baseAcceleration = 0.1;
+        double acceleration = totalDist > 20.0 ? baseAcceleration * 1.5 : baseAcceleration; // Faster acceleration when far
+        
+        Vec3 newVelocity = DragonMathUtil.calculateFlightVector(dragon, targetPos, speed, acceleration);
+        dragon.setDeltaMovement(newVelocity);
     }
 
     /**
      * Hovering movement - simpler, more direct control
      */
     private void handleHoveringMovement() {
-        // Look at target if we have one
+        // Look at target if we have one - use smooth looking
         if (dragon.getTarget() != null && dragon.distanceToSqr(dragon.getTarget()) < 1600.0D) {
-            dragon.getLookControl().setLookAt(dragon.getTarget(), 100F, 100F);
+            DragonMathUtil.smoothLookAt(dragon, dragon.getTarget(), 10.0f, 10.0f);
         }
 
         if (this.operation == Operation.MOVE_TO) {

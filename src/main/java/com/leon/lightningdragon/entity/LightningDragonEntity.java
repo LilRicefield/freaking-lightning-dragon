@@ -53,7 +53,6 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.pathfinder.BlockPathTypes;
-import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.network.PacketDistributor;
 
@@ -119,8 +118,12 @@ public class LightningDragonEntity extends TamableAnimal implements GeoEntity, F
     public static final RawAnimation HURT = RawAnimation.begin().thenPlay("animation.lightning_dragon.hurt");
     public static final RawAnimation DODGE = RawAnimation.begin().thenPlay("animation.lightning_dragon.dodge");
     public static final RawAnimation ROAR = RawAnimation.begin().thenPlay("animation.lightning_dragon.roar");
+
+    //Controller animations
     public static final RawAnimation WALK_SWITCH = RawAnimation.begin().thenLoop("animation.lightning_dragon.walk_switch");
     public static final RawAnimation RUN_SWITCH = RawAnimation.begin().thenLoop("animation.lightning_dragon.run_switch");
+    public static final RawAnimation GLIDE_SWITCH = RawAnimation.begin().thenLoop("animation.lightning_dragon.glide_switch");
+    public static final RawAnimation FLAP_SWITCH = RawAnimation.begin().thenLoop("animation.lightning_dragon.flap_switch");
 
     // Attack animations - these will be defined in the ability classes
     public static final RawAnimation LIGHTNING_BREATH = RawAnimation.begin().thenPlay("animation.lightning_dragon.lightning_breath");
@@ -188,7 +191,7 @@ public class LightningDragonEntity extends TamableAnimal implements GeoEntity, F
 
     // ===== STATE VARIABLES =====
     public int timeFlying = 0;
-    public Vec3 lastFlightTargetPos;
+    public Vec3 lastFlightTargetPos = Vec3.ZERO; // For flight path smoothing
     public boolean landingFlag = false;
 
     private int landingTimer = 0;
@@ -720,9 +723,6 @@ public class LightningDragonEntity extends TamableAnimal implements GeoEntity, F
     // CACHE EXPENSIVE CALCULATIONS
     private Vec3 cachedLookDirection = Vec3.ZERO;
     private int lookDirectionCacheTime = 0;
-    public double getAngleBetweenEntities(Entity first, Entity second) {
-        return Math.atan2(second.getZ() - first.getZ(), second.getX() - first.getX()) * (180 / Math.PI) + 90;
-    }
     private void handleDodgeMovement() {
         Vec3 current = this.getDeltaMovement();
         Vec3 boosted = current.add(dodgeVec.scale(0.25));
@@ -858,6 +858,7 @@ public class LightningDragonEntity extends TamableAnimal implements GeoEntity, F
             handleGlidingTravel(motion);
         }
     }
+    @SuppressWarnings("unused") // Motion parameter for method signature consistency
     private void handleGlidingTravel(Vec3 motion) {
         Vec3 vec3 = this.getDeltaMovement();
 
@@ -865,7 +866,7 @@ public class LightningDragonEntity extends TamableAnimal implements GeoEntity, F
             this.fallDistance = 1.0F;
         }
 
-        Vec3 moveDirection = this.getLookAngle().normalize();
+        Vec3 moveDirection = this.getCachedLookDirection().normalize();
         float pitchRad = this.getXRot() * ((float) Math.PI / 180F);
 
         // Enhanced gliding physics that responds to animation state
@@ -1022,6 +1023,7 @@ public class LightningDragonEntity extends TamableAnimal implements GeoEntity, F
         return false;
     }
 
+    @SuppressWarnings("unused") // Forge interface requires these parameters
     public static boolean canSpawnHere(EntityType<LightningDragonEntity> type,
                                        net.minecraft.world.level.LevelAccessor level,
                                        MobSpawnType reason,
@@ -1294,6 +1296,9 @@ public class LightningDragonEntity extends TamableAnimal implements GeoEntity, F
                 new AnimationController<>(this, "movement", 8, animationController::handleMovementAnimation);
         AnimationController<LightningDragonEntity> walkRunController =
                 new AnimationController<>(this, "walk_run_switch", 4, this::walkRunPredicate);
+        AnimationController<LightningDragonEntity> flightBlendController =
+                new AnimationController<>(this, "flight_blend", 6, this::flightBlendPredicate);
+        controllers.add(flightBlendController);
         movementController.setOverrideEasingType(EasingType.EASE_IN_OUT_SINE);
 
         // Add sound keyframe handler (keep your existing sound code)
@@ -1327,6 +1332,19 @@ public class LightningDragonEntity extends TamableAnimal implements GeoEntity, F
         return PlayState.CONTINUE;
     }
 
+    private PlayState flightBlendPredicate(AnimationState<LightningDragonEntity> state) {
+        if (!isFlying()) return PlayState.STOP;
+
+        float flappingWeight = animationController.getFlappingFraction(state.getPartialTick());
+
+        if (flappingWeight > 0.5f) {
+            state.setAndContinue(FLAP_SWITCH);  // Sets glideController to [0,0,0]
+        } else {
+            state.setAndContinue(GLIDE_SWITCH); // Sets glideController to [1,0,0]
+        }
+        return PlayState.CONTINUE;
+    }
+    //NO MORE PREDICATES
 
     @Override
     public AnimatableInstanceCache getAnimatableInstanceCache() {
@@ -1342,10 +1360,8 @@ public class LightningDragonEntity extends TamableAnimal implements GeoEntity, F
     }
 
     public List<Projectile> getCachedNearbyProjectiles() {
-        return getCachedValue("nearbyProjectiles", 3, () -> {
-            AABB scanBox = getBoundingBox().inflate(30.0, 15.0, 30.0);
-            return level().getEntitiesOfClass(Projectile.class, scanBox);
-        });
+        return getCachedValue("nearbyProjectiles", 3, () -> 
+            DragonMathUtil.getEntitiesNearby(this, Projectile.class, 30.0));
     }
 
     @SuppressWarnings("unchecked")
