@@ -142,6 +142,8 @@ public class LightningDragonEntity extends TamableAnimal implements GeoEntity, F
             new AbilityType<>("wing_lightning", WingLightningAbility::new);
     public static final AbilityType<LightningDragonEntity, ElectricBiteAbility> ELECTRIC_BITE_ABILITY =
             new AbilityType<>("electric_bite", ElectricBiteAbility::new);
+    public static final AbilityType<LightningDragonEntity, LightningBurstAbility> LIGHTNING_BURST_ABILITY =
+            new AbilityType<>("lightning_burst", LightningBurstAbility::new);
     public static final AbilityType<LightningDragonEntity, HurtAbility<LightningDragonEntity>> HURT_ABILITY =
             new AbilityType<>("dragon_hurt", (type, entity) -> new HurtAbility<>(type, entity,
                     HURT, 16, 0));
@@ -352,6 +354,7 @@ public class LightningDragonEntity extends TamableAnimal implements GeoEntity, F
 
     // Combat distance constants
     private static final double BEAM_RANGE = 30.0;      // Use beam at very long range
+    private static final double BURST_RANGE = 20.0;     // Use burst at long range
     private static final double BREATH_RANGE = 8.0;     // Use breath at medium range  
     private static final double MELEE_RANGE = 6.0;      // Land and use melee at close range
 
@@ -370,6 +373,20 @@ public class LightningDragonEntity extends TamableAnimal implements GeoEntity, F
                 sendAbilityMessage(LIGHTNING_BEAM_ABILITY);
                 return true;
             }
+        } else if (distance >= BURST_RANGE) {
+            // Long range - lightning burst (precision attack)
+            Ability<LightningDragonEntity> burstAbility = LIGHTNING_BURST_ABILITY.createAbility(this);
+            if (burstAbility.tryAbility()) {
+                sendAbilityMessage(LIGHTNING_BURST_ABILITY);
+                return true;
+            }
+            
+            // Fallback to beam if burst fails
+            Ability<LightningDragonEntity> beamAbility = LIGHTNING_BEAM_ABILITY.createAbility(this);
+            if (beamAbility.tryAbility()) {
+                sendAbilityMessage(LIGHTNING_BEAM_ABILITY);
+                return true;
+            }
         } else if (distance >= BREATH_RANGE) {
             // Medium range - breath attack preferred
             Ability<LightningDragonEntity> breathAbility = LIGHTNING_BREATH_ABILITY.createAbility(this);
@@ -378,10 +395,10 @@ public class LightningDragonEntity extends TamableAnimal implements GeoEntity, F
                 return true;
             }
             
-            // Fallback to beam if breath fails
-            Ability<LightningDragonEntity> beamAbility = LIGHTNING_BEAM_ABILITY.createAbility(this);
-            if (beamAbility.tryAbility()) {
-                sendAbilityMessage(LIGHTNING_BEAM_ABILITY);
+            // Fallback to burst if breath fails
+            Ability<LightningDragonEntity> burstAbility = LIGHTNING_BURST_ABILITY.createAbility(this);
+            if (burstAbility.tryAbility()) {
+                sendAbilityMessage(LIGHTNING_BURST_ABILITY);
                 return true;
             }
         } else if (distance >= MELEE_RANGE) {

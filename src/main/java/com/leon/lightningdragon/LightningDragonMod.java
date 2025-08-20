@@ -2,11 +2,13 @@ package com.leon.lightningdragon;
 
 import com.leon.lightningdragon.client.renderer.LightningDragonRenderer;
 import com.leon.lightningdragon.client.renderer.LightningBallRenderer;
+// LightningBurstBeamGeoRenderer removed - using particles now!
 import com.leon.lightningdragon.entity.LightningDragonEntity;
 import com.leon.lightningdragon.network.NetworkHandler;
 import com.leon.lightningdragon.registry.ModEntities;
 import com.leon.lightningdragon.registry.ModItems;
-import com.leon.lightningdragon.registry.ModSounds; // ADD THIS
+import com.leon.lightningdragon.registry.ModSounds;
+import com.leon.lightningdragon.registry.ModParticles;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.SpawnPlacements;
 import net.minecraft.world.item.CreativeModeTabs;
@@ -19,9 +21,6 @@ import net.minecraftforge.eventbus.api.IEventBus;
 import net.minecraftforge.client.event.EntityRenderersEvent;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
-import com.mojang.logging.LogUtils;
-import org.slf4j.Logger;
-import java.time.Instant;
 
 @Mod(LightningDragonMod.MOD_ID)
 public class LightningDragonMod {
@@ -37,6 +36,7 @@ public class LightningDragonMod {
         ModEntities.REGISTER.register(modBus);
         ModItems.REGISTER.register(modBus);
         ModSounds.REGISTER.register(modBus);
+        ModParticles.REGISTER.register(modBus);
 
         // Register event handlers
         modBus.addListener(this::onEntityAttributes);
@@ -58,6 +58,7 @@ public class LightningDragonMod {
         // Register entity renderers
         event.registerEntityRenderer(ModEntities.LIGHTNING_DRAGON.get(), LightningDragonRenderer::new);
         event.registerEntityRenderer(ModEntities.LIGHTNING_BALL.get(), LightningBallRenderer::new);
+        // LIGHTNING_BURST_BEAM renderer removed - pure particles now!
     }
 
     private void onBuildCreativeTabContents(BuildCreativeModeTabContentsEvent event) {

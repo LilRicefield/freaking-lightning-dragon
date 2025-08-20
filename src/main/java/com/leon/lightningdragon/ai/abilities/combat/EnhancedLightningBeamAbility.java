@@ -1,3 +1,10 @@
+/**
+Lightning beam attack inspired by Ice & Fire: Dragons mod by Alexthe666 and his crew
+PLEASE DON'T DMCA MY BUM HEADED-ASS MISTER ALEX. CREDIT WHERE CREDIT'S DUE. RIGHT???? I'M LEARNING FROM THE BEST!!!
+*/
+
+// Original implementation adapted and modified for Zap Van Dink (Leon’s Lightning Dragon)
+
 package com.leon.lightningdragon.ai.abilities.combat;
 
 import com.leon.lightningdragon.ai.abilities.Ability;

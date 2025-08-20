@@ -2,6 +2,7 @@ package com.leon.lightningdragon.registry;
 
 import com.leon.lightningdragon.LightningDragonMod;
 import com.leon.lightningdragon.entity.LightningDragonEntity;
+// LightningBurstBeamEntity removed - using pure particles now!
 import com.leon.lightningdragon.entity.projectile.LightningBallEntity;
 
 import net.minecraft.world.entity.EntityType;
@@ -28,4 +29,6 @@ public class ModEntities {
                     .updateInterval(1)
                     .setShouldReceiveVelocityUpdates(true)
                     .build("lightning_ball"));
+
+    // LIGHTNING_BURST_BEAM removed - now using epic particle effects instead!
 }

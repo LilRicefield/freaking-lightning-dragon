@@ -56,7 +56,7 @@ public class LightningRender {
         }
     }
 
-    public void update(Object owner, LightningBoltData newBoltData, float partialTicks) {
+    public void update(Object owner, LightningBolt newBoltData, float partialTicks) {
         if (minecraft.level == null) {
             return;
         }
@@ -73,7 +73,7 @@ public class LightningRender {
     public class BoltOwnerData {
 
         private final Set<BoltInstance> bolts = new ObjectOpenHashSet<>();
-        private LightningBoltData lastBolt;
+        private LightningBolt lastBolt;
         private Timestamp lastBoltTimestamp = new Timestamp();
         private Timestamp lastUpdateTimestamp = new Timestamp();
         private double lastBoltDelay;
@@ -87,11 +87,11 @@ public class LightningRender {
 
     public class BoltInstance {
 
-        private final LightningBoltData bolt;
-        private final List<LightningBoltData.BoltQuads> renderQuads;
+        private final LightningBolt bolt;
+        private final List<LightningBolt.BoltQuads> renderQuads;
         private final Timestamp createdTimestamp;
 
-        public BoltInstance(LightningBoltData bolt, Timestamp timestamp) {
+        public BoltInstance(LightningBolt bolt, Timestamp timestamp) {
             this.bolt = bolt;
             this.renderQuads = bolt.generate();
             this.createdTimestamp = timestamp;

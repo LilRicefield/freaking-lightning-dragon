@@ -16,8 +16,6 @@ import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.util.Mth;
-import com.leon.lightningdragon.client.renderer.LightningRender;
-import com.leon.lightningdragon.client.renderer.LightningBoltData;
 
 /**
  * FIXED Lightning Dragon Renderer with proper head bone tracking
@@ -46,8 +44,6 @@ public class LightningDragonRenderer extends GeoEntityRenderer<LightningDragonEn
 
         return false;
     }
-
-
 
     @Override
     public void preRender(PoseStack poseStack,
@@ -163,14 +159,14 @@ public class LightningDragonRenderer extends GeoEntityRenderer<LightningDragonEn
         
         // PROFESSIONAL ICE & FIRE BOLT GENERATION
         float energyScale = 0.4F * entity.getScale();
-        LightningBoltData bolt = new LightningBoltData(
-                LightningBoltData.BoltRenderInfo.ELECTRICITY, 
+        LightningBolt bolt = new LightningBolt(
+                LightningBolt.BoltRenderInfo.ELECTRICITY,
                 headPos, 
                 targetPos, 
                 15
         ).size(0.05F * getBoundedScale(energyScale))
                 .lifespan(4)
-                .spawn(LightningBoltData.SpawnFunction.NO_DELAY);
+                .spawn(LightningBolt.SpawnFunction.NO_DELAY);
         
         lightningRender.update(entity, bolt, partialTick);
         lightningRender.render(partialTick, poseStack, bufferSource);
