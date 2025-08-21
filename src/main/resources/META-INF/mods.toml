@@ -10,7 +10,7 @@ description='''
 Adds a fully animated, AI-driven Lightning Dragon to Minecraft.
 '''
 authors="Leon Baldwin Saint"
-
+mixins = ["lightningdragon.mixins.json"]
 # Optional: points Forge to your main class if you're using @Mod
 # (Forge 1.20.1 auto-discovers via @Mod annotation, but it's nice for docs.)
 # entrypoints=[

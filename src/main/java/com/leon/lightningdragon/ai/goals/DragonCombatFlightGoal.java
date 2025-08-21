@@ -52,10 +52,10 @@ public class DragonCombatFlightGoal extends Goal {
 
     @Override
     public boolean canContinueToUse() {
-        // Keep trying until we're actually flying
+        // Exit immediately when takeoff starts - job done!
         return dragon.getTarget() != null &&
                 dragon.getTarget().isAlive() &&
-                !dragon.isFlying() &&
+                !dragon.isTakeoff() &&
                 !dragon.isOrderedToSit() &&
                 !dragon.isLanding();
     }

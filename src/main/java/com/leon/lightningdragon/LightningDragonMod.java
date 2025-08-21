@@ -2,7 +2,6 @@ package com.leon.lightningdragon;
 
 import com.leon.lightningdragon.client.renderer.LightningDragonRenderer;
 import com.leon.lightningdragon.client.renderer.LightningBallRenderer;
-// LightningBurstBeamGeoRenderer removed - using particles now!
 import com.leon.lightningdragon.entity.LightningDragonEntity;
 import com.leon.lightningdragon.network.NetworkHandler;
 import com.leon.lightningdragon.registry.ModEntities;

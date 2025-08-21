@@ -7,8 +7,7 @@ package com.leon.lightningdragon.entity;
 import com.leon.lightningdragon.ai.goals.*;
 import com.leon.lightningdragon.ai.navigation.DragonFlightMoveHelper;
 import com.leon.lightningdragon.client.animation.DragonAnimationController;
-import com.leon.lightningdragon.network.MessageDragonUseAbility;
-import com.leon.lightningdragon.network.NetworkHandler;
+import com.leon.lightningdragon.entity.controller.*;
 import com.leon.lightningdragon.util.DragonMathUtil;
 import com.leon.lightningdragon.ai.abilities.*;
 import com.leon.lightningdragon.ai.abilities.combat.*;
@@ -54,7 +53,6 @@ import net.minecraft.world.item.Items;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.pathfinder.BlockPathTypes;
 import net.minecraft.world.phys.Vec3;
-import net.minecraftforge.network.PacketDistributor;
 
 //GeckoLib
 
@@ -163,74 +161,86 @@ public class LightningDragonEntity extends TamableAnimal implements GeoEntity, F
 
     // Combat constants
     private static final int ABILITY_COOLDOWN_TICKS = 60; // 3 seconds between abilities
+    private static final int ULTIMATE_COOLDOWN_TICKS = 1200; // 60 seconds for ultimate abilities
 
-    // ===== DATA ACCESSORS =====
-    private static final EntityDataAccessor<Boolean> DATA_FLYING =
+    // ===== DATA ACCESSORS (Package-private for controller access) =====
+    static final EntityDataAccessor<Boolean> DATA_FLYING =
             SynchedEntityData.defineId(LightningDragonEntity.class, EntityDataSerializers.BOOLEAN);
-    private static final EntityDataAccessor<Boolean> DATA_TAKEOFF =
+    static final EntityDataAccessor<Boolean> DATA_TAKEOFF =
             SynchedEntityData.defineId(LightningDragonEntity.class, EntityDataSerializers.BOOLEAN);
-    private static final EntityDataAccessor<Boolean> DATA_HOVERING =
+    static final EntityDataAccessor<Boolean> DATA_HOVERING =
             SynchedEntityData.defineId(LightningDragonEntity.class, EntityDataSerializers.BOOLEAN);
-    private static final EntityDataAccessor<Float> DATA_BANKING =
+    static final EntityDataAccessor<Float> DATA_BANKING =
             SynchedEntityData.defineId(LightningDragonEntity.class, EntityDataSerializers.FLOAT);
-    private static final EntityDataAccessor<Float> DATA_PREV_BANKING =
+    static final EntityDataAccessor<Float> DATA_PREV_BANKING =
             SynchedEntityData.defineId(LightningDragonEntity.class, EntityDataSerializers.FLOAT);
-    private static final EntityDataAccessor<Boolean> DATA_LANDING =
+    static final EntityDataAccessor<Boolean> DATA_LANDING =
             SynchedEntityData.defineId(LightningDragonEntity.class, EntityDataSerializers.BOOLEAN);
-    private static final EntityDataAccessor<Boolean> DATA_RUNNING =
+    static final EntityDataAccessor<Boolean> DATA_RUNNING =
             SynchedEntityData.defineId(LightningDragonEntity.class, EntityDataSerializers.BOOLEAN);
-    private static final EntityDataAccessor<Boolean> DATA_ATTACKING =
+    static final EntityDataAccessor<Boolean> DATA_ATTACKING =
             SynchedEntityData.defineId(LightningDragonEntity.class, EntityDataSerializers.BOOLEAN);
-    private static final EntityDataAccessor<Boolean> HAS_LIGHTNING_TARGET =
+    static final EntityDataAccessor<Boolean> HAS_LIGHTNING_TARGET =
             SynchedEntityData.defineId(LightningDragonEntity.class, EntityDataSerializers.BOOLEAN);
-    private static final EntityDataAccessor<Float> LIGHTNING_TARGET_X =
+    static final EntityDataAccessor<Float> LIGHTNING_TARGET_X =
             SynchedEntityData.defineId(LightningDragonEntity.class, EntityDataSerializers.FLOAT);
-    private static final EntityDataAccessor<Float> LIGHTNING_TARGET_Y =
+    static final EntityDataAccessor<Float> LIGHTNING_TARGET_Y =
             SynchedEntityData.defineId(LightningDragonEntity.class, EntityDataSerializers.FLOAT);
-    private static final EntityDataAccessor<Float> LIGHTNING_TARGET_Z =
+    static final EntityDataAccessor<Float> LIGHTNING_TARGET_Z =
             SynchedEntityData.defineId(LightningDragonEntity.class, EntityDataSerializers.FLOAT);
-    private static final EntityDataAccessor<Float> LIGHTNING_STREAM_PROGRESS =
+    static final EntityDataAccessor<Float> LIGHTNING_STREAM_PROGRESS =
             SynchedEntityData.defineId(LightningDragonEntity.class, EntityDataSerializers.FLOAT);
-    private static final EntityDataAccessor<Boolean> LIGHTNING_STREAM_ACTIVE =
+    static final EntityDataAccessor<Boolean> LIGHTNING_STREAM_ACTIVE =
             SynchedEntityData.defineId(LightningDragonEntity.class, EntityDataSerializers.BOOLEAN);
+    
+    // Sitting progress for animation only - logic handled by TamableAnimal
+    public static final EntityDataAccessor<Float> DATA_SIT_PROGRESS =
+            SynchedEntityData.defineId(LightningDragonEntity.class, EntityDataSerializers.FLOAT);
 
 
-    // ===== STATE VARIABLES =====
+    // ===== STATE VARIABLES (Package-private for controller access) =====
     public int timeFlying = 0;
     public Vec3 lastFlightTargetPos = Vec3.ZERO; // For flight path smoothing
     public boolean landingFlag = false;
 
-    private int landingTimer = 0;
-    private int runningTicks = 0;
-    private float prevSitProgress = 0f;
-    private float sitProgress = 0f;
-    private boolean hasRunningAttributes = false;
+    public int landingTimer = 0;
+    int runningTicks = 0;
+    float prevSitProgress = 0f;
+    public float sitProgress = 0f;
+    public boolean hasRunningAttributes = false;
 
     // Dodge system
-    private boolean dodging = false;
-    private int dodgeTicksLeft = 0;
-    private Vec3 dodgeVec = Vec3.ZERO;
+    boolean dodging = false;
+    int dodgeTicksLeft = 0;
+    Vec3 dodgeVec = Vec3.ZERO;
 
-    // Navigation
-    private final GroundPathNavigation groundNav;
-    private final FlyingPathNavigation airNav;
-    private boolean usingAirNav = false;
+    // Navigation (Package-private for controller access)
+    public final GroundPathNavigation groundNav;
+    public final FlyingPathNavigation airNav;
+    public boolean usingAirNav = false;
 
-    // Ability system state
-    private Ability<LightningDragonEntity> activeAbility;
-    private int abilityCooldown = 0;
+    // ===== CONTROLLER INSTANCES =====
+    public final DragonFlightController flightController;
+    public final DragonCombatManager combatManager;
+    public final DragonInteractionHandler interactionHandler;
+    public final DragonStateManager stateManager;
 
-    // Sitting, I guess
+    // ===== CUSTOM SITTING SYSTEM =====
+    // Completely replace TamableAnimal's broken sitting behavior
+    
     public float maxSitTicks() {
         return 15.0F; // Takes 15 ticks to fully sit (about 0.75 seconds)
     }
+    
     public float getSitProgress(float partialTicks) {
-        return (prevSitProgress + (sitProgress - prevSitProgress) * partialTicks) / maxSitTicks();
+        // Use synchronized data on client side, local data on server side
+        float currentProgress = level().isClientSide ? this.entityData.get(DATA_SIT_PROGRESS) : sitProgress;
+        float previousProgress = level().isClientSide ? currentProgress : prevSitProgress;
+        return (previousProgress + (currentProgress - previousProgress) * partialTicks) / maxSitTicks();
     }
 
     @Override
     public boolean isInSittingPose() {
-        // Enhanced sitting pose detection like DinosaurEntity
         return super.isInSittingPose() && !(this.isVehicle() || this.isPassenger() || this.isFlying());
     }
     // GeckoLib
@@ -274,6 +284,12 @@ public class LightningDragonEntity extends TamableAnimal implements GeoEntity, F
         this.setPathfindingMalus(BlockPathTypes.WATER, -1.0F);
         this.setPathfindingMalus(BlockPathTypes.WATER_BORDER, -1.0F);
         this.setPathfindingMalus(BlockPathTypes.FENCE, -1.0F);
+
+        // Initialize controllers
+        this.flightController = new DragonFlightController(this);
+        this.combatManager = new DragonCombatManager(this);
+        this.interactionHandler = new DragonInteractionHandler(this);
+        this.stateManager = new DragonStateManager(this);
     }
 
     public static AttributeSupplier.Builder createAttributes() {
@@ -303,7 +319,7 @@ public class LightningDragonEntity extends TamableAnimal implements GeoEntity, F
         this.entityData.define(LIGHTNING_TARGET_Z, 0.0F);
         this.entityData.define(LIGHTNING_STREAM_PROGRESS, 0.0F);
         this.entityData.define(LIGHTNING_STREAM_ACTIVE, false);
-
+        this.entityData.define(DATA_SIT_PROGRESS, 0.0f);
     }
 
     public void setHasLightningTarget(boolean lightning_target) {
@@ -360,103 +376,28 @@ public class LightningDragonEntity extends TamableAnimal implements GeoEntity, F
 
     // ===== ABILITY SYSTEM METHODS =====
     public boolean tryUseRangedAbility() {
+        return combatManager.tryUseRangedAbility();
+    }
+    
+    // Strategic ultimate ability usage
+    private boolean shouldUseUltimate() {
         LivingEntity target = getTarget();
-        if (target == null || !canUseAbility()) return false;
-
-        double distance = getCachedDistanceToTarget();
-
-        // Strategic distance-based combat
-        if (distance >= BEAM_RANGE) {
-            // Very long range - precision beam attack
-            Ability<LightningDragonEntity> beamAbility = LIGHTNING_BEAM_ABILITY.createAbility(this);
-            if (beamAbility.tryAbility()) {
-                sendAbilityMessage(LIGHTNING_BEAM_ABILITY);
-                return true;
-            }
-        } else if (distance >= BURST_RANGE) {
-            // Long range - lightning burst (precision attack)
-            Ability<LightningDragonEntity> burstAbility = LIGHTNING_BURST_ABILITY.createAbility(this);
-            if (burstAbility.tryAbility()) {
-                sendAbilityMessage(LIGHTNING_BURST_ABILITY);
-                return true;
-            }
-            
-            // Fallback to beam if burst fails
-            Ability<LightningDragonEntity> beamAbility = LIGHTNING_BEAM_ABILITY.createAbility(this);
-            if (beamAbility.tryAbility()) {
-                sendAbilityMessage(LIGHTNING_BEAM_ABILITY);
-                return true;
-            }
-        } else if (distance >= BREATH_RANGE) {
-            // Medium range - breath attack preferred
-            Ability<LightningDragonEntity> breathAbility = LIGHTNING_BREATH_ABILITY.createAbility(this);
-            if (breathAbility.tryAbility()) {
-                sendAbilityMessage(LIGHTNING_BREATH_ABILITY);
-                return true;
-            }
-            
-            // Fallback to burst if breath fails
-            Ability<LightningDragonEntity> burstAbility = LIGHTNING_BURST_ABILITY.createAbility(this);
-            if (burstAbility.tryAbility()) {
-                sendAbilityMessage(LIGHTNING_BURST_ABILITY);
-                return true;
-            }
-        } else if (distance >= MELEE_RANGE) {
-            // Close range - try ground abilities or consider landing
-            if (isFlying()) {
-                // Try aerial abilities first
-                Ability<LightningDragonEntity> wingLightning = WING_LIGHTNING_ABILITY.createAbility(this);
-                if (wingLightning.tryAbility()) {
-                    sendAbilityMessage(WING_LIGHTNING_ABILITY);
-                    return true;
-                }
-                
-                // Consider landing for better combat options
-                if (canLandSafely()) {
-                    initiateAggressiveLanding();
-                    return false; // Will attack after landing
-                }
-            } else {
-                // Ground-based close combat
-                Ability<LightningDragonEntity> thunderStomp = THUNDER_STOMP_ABILITY.createAbility(this);
-                if (thunderStomp.tryAbility()) {
-                    sendAbilityMessage(THUNDER_STOMP_ABILITY);
-                    return true;
-                }
-            }
-            
-            // Fallback to breath at close range
-            Ability<LightningDragonEntity> breathAbility = LIGHTNING_BREATH_ABILITY.createAbility(this);
-            if (breathAbility.tryAbility()) {
-                sendAbilityMessage(LIGHTNING_BREATH_ABILITY);
-                return true;
-            }
-        } else {
-            // Very close range - melee combat
-            if (isFlying()) {
-                // Must land for melee
-                if (canLandSafely()) {
-                    initiateAggressiveLanding();
-                }
-                return false;
-            } else {
-                // Ground melee attacks
-                Ability<LightningDragonEntity> electricBite = ELECTRIC_BITE_ABILITY.createAbility(this);
-                if (electricBite.tryAbility()) {
-                    sendAbilityMessage(ELECTRIC_BITE_ABILITY);
-                    return true;
-                }
-                
-                // Thunder stomp as backup
-                Ability<LightningDragonEntity> thunderStomp = THUNDER_STOMP_ABILITY.createAbility(this);
-                if (thunderStomp.tryAbility()) {
-                    sendAbilityMessage(THUNDER_STOMP_ABILITY);
-                    return true;
-                }
-            }
-        }
-
-        return false;
+        if (target == null) return false;
+        
+        // Check if ultimate is on cooldown (Lightning Burst specifically)
+        Ability<LightningDragonEntity> burstAbility = LIGHTNING_BURST_ABILITY.createAbility(this);
+        if (!burstAbility.tryAbility()) return false; // Still on cooldown or can't be used
+        
+        // Only use ultimate for tough targets with high health
+        float targetHealthPercent = target.getHealth() / target.getMaxHealth();
+        
+        // Use ultimate if:
+        // - Target has >75% health (fresh fight)
+        // - Target has >40 max health (strong enemy)  
+        // - Combat has been going on for a while (frustrated dragon)
+        return targetHealthPercent > 0.75f || 
+               target.getMaxHealth() > 40.0f ||
+               (tickCount % 600 == 0); // Every 30 seconds as desperation move
     }
 
     // Landing safety and combat landing methods
@@ -492,49 +433,24 @@ public class LightningDragonEntity extends TamableAnimal implements GeoEntity, F
     }
 
     public Ability<LightningDragonEntity> getActiveAbility() {
-        return activeAbility;
+        return combatManager.getActiveAbility();
     }
 
     public AbilityType<LightningDragonEntity, ?> getActiveAbilityType() {
-        return activeAbility != null ? activeAbility.getAbilityType() : null;
+        return combatManager.getActiveAbilityType();
     }
 
     public void setActiveAbility(Ability<LightningDragonEntity> ability) {
-        if (this.activeAbility != null) {
-            this.activeAbility.end();
-        }
-        this.activeAbility = ability;
-        if (ability != null) {
-            ability.start();
-        }
+        combatManager.setActiveAbility(ability);
     }
 
     public boolean canUseAbility() {
-        return abilityCooldown <= 0 && (activeAbility == null || activeAbility.canCancelActiveAbility());
+        return combatManager.canUseAbility();
     }
 
     // In LightningDragonEntity.java
     public void sendAbilityMessage(AbilityType<LightningDragonEntity, ?> abilityType) {
-        if (canUseAbility()) {
-            @SuppressWarnings("unchecked")
-            AbilityType<LightningDragonEntity, Ability<LightningDragonEntity>> castType =
-                    (AbilityType<LightningDragonEntity, Ability<LightningDragonEntity>>) abilityType;
-
-            Ability<LightningDragonEntity> newAbility = castType.createAbility(this);
-
-            if (newAbility.tryAbility()) {
-                setActiveAbility(newAbility);
-                abilityCooldown = ABILITY_COOLDOWN_TICKS;
-
-                // NEW: Send packet to clients
-                if (!level().isClientSide) {
-                    NetworkHandler.INSTANCE.send(
-                            PacketDistributor.TRACKING_ENTITY_AND_SELF.with(() -> this),
-                            new MessageDragonUseAbility(getId(), abilityType.getName())
-                    );
-                }
-            }
-        }
+        combatManager.sendAbilityMessage(abilityType);
     }
     // For general head position (eye beams, head tracking, etc.)
     // Uses actual head bone coordinates from lightning_dragon.geo.json
@@ -595,19 +511,7 @@ public class LightningDragonEntity extends TamableAnimal implements GeoEntity, F
     }
 
     public void forceEndActiveAbility() {
-        if (activeAbility != null && activeAbility.isUsing()) {
-            activeAbility.end();
-            setActiveAbility(null);
-        }
-
-        // Clean up attack states
-        setAttacking(false);
-        setHasLightningTarget(false);
-
-        // Reset ability cooldown to prevent immediate re-use
-        if (abilityCooldown < 20) {
-            abilityCooldown = 20; // Brief cooldown after forced end
-        }
+        combatManager.forceEndActiveAbility();
     }
 
     // ===== NAVIGATION SWITCHING =====
@@ -734,55 +638,41 @@ public class LightningDragonEntity extends TamableAnimal implements GeoEntity, F
     public void tick() {
         animationController.tick();
         super.tick();
-        validateCurrentTarget();
-        handleFlightLogic();
-        if (isRunning() && !hasRunningAttributes) {
-            hasRunningAttributes = true;
-            Objects.requireNonNull(this.getAttribute(Attributes.MOVEMENT_SPEED)).setBaseValue(0.45D); // Fast running
-        }
-        if (!isRunning() && hasRunningAttributes) {
-            hasRunningAttributes = false;
-            Objects.requireNonNull(this.getAttribute(Attributes.MOVEMENT_SPEED)).setBaseValue(0.25D); // Normal walking
-        }
-        if (isInSittingPose() && sitProgress < maxSitTicks()) {
-            sitProgress++;
-        }
-        if (!isInSittingPose() && sitProgress > 0F) {
-            sitProgress--;
-        }
-        if (!level().isClientSide && (!isFlying() || isLanding())) {
+        
+        // Delegate to controllers
+        combatManager.validateCurrentTarget();
+        flightController.handleFlightLogic();
+        combatManager.tick();
+        stateManager.updateRunningAttributes();
+        interactionHandler.updateSittingProgress();
+        
+        if (!level().isClientSide && (!stateManager.isFlying() || stateManager.isLanding())) {
             updateBankingReset();
         }
         if (!level().isClientSide) {
             handleAmbientSounds();
         }
-        // Ability system tick
-        if (activeAbility != null) {
-            if (activeAbility.isUsing()) {
-                activeAbility.tick();
-            } else {
-                activeAbility = null;
-            }
-        }
-        // Cooldown management
-        if (abilityCooldown > 0) {
-            abilityCooldown--;
-        }
+        
         // Handle dodge movement first
-        if (!level().isClientSide && dodging) {
+        if (!level().isClientSide && stateManager.isDodging()) {
             handleDodgeMovement();
             return;
         }
+        
         // Track running time for animations
-        if (isRunning()) {
+        if (stateManager.isRunning()) {
             runningTicks++;
         } else {
             runningTicks = Math.max(0, runningTicks - 2);
         }
-        // Auto-stop running if not moving much
-        if (isRunning() && getDeltaMovement().horizontalDistanceSqr() < 0.01) {
-            setRunning(false);
+        
+        // Update client-side sit progress from synchronized data
+        if (level().isClientSide) {
+            prevSitProgress = sitProgress;
+            sitProgress = this.entityData.get(DATA_SIT_PROGRESS);
         }
+        
+        stateManager.autoStopRunning();
     }
     /**
      * Plays appropriate ambient sound based on dragon's current mood and state
@@ -791,7 +681,7 @@ public class LightningDragonEntity extends TamableAnimal implements GeoEntity, F
         RandomSource random = getRandom();
 
         // Don't make ambient sounds if we're in combat or using abilities
-        if (isAggressive() || (activeAbility != null && activeAbility.isUsing())) {
+        if (isAggressive() || (getActiveAbility() != null && getActiveAbility().isUsing())) {
             return;
         }
         SoundEvent soundToPlay = null;
@@ -1369,6 +1259,7 @@ public class LightningDragonEntity extends TamableAnimal implements GeoEntity, F
     @Override
     public void setOrderedToSit(boolean sitting) {
         super.setOrderedToSit(sitting);
+        
         if (sitting) {
             // Force landing if flying when ordered to sit
             if (isFlying()) {
@@ -1376,15 +1267,48 @@ public class LightningDragonEntity extends TamableAnimal implements GeoEntity, F
             }
             this.setRunning(false);
             this.getNavigation().stop();
-
-            // Debug output
-            if (!level().isClientSide) {
-                System.out.println("Dragon ordered to sit - current pose: " + isInSittingPose() + ", progress: " + getSitProgress(1.0f));
-            }
         } else {
+            // Reset sit progress when standing up
             if (!level().isClientSide) {
-                System.out.println("Dragon ordered to stand - current pose: " + isInSittingPose() + ", progress: " + getSitProgress(1.0f));
+                sitProgress = 0;
+                this.entityData.set(DATA_SIT_PROGRESS, 0.0f);
             }
+        }
+    }
+
+    @Override
+    public void handleEntityEvent(byte eventId) {
+        if (eventId == 6) {
+            // Failed taming - show smoke particles ONLY, no sitting behavior at all
+            if (level().isClientSide) {
+                // Show smoke particles for failed taming
+                for (int i = 0; i < 7; ++i) {
+                    double d0 = this.random.nextGaussian() * 0.02D;
+                    double d1 = this.random.nextGaussian() * 0.02D;
+                    double d2 = this.random.nextGaussian() * 0.02D;
+                    this.level().addParticle(net.minecraft.core.particles.ParticleTypes.SMOKE,
+                            this.getRandomX(1.0D), this.getRandomY() + 0.5D, this.getRandomZ(1.0D), d0, d1, d2);
+                }
+            }
+            // IMPORTANT: Don't call super for event 6 - it might trigger sitting behavior
+            return; // Completely skip any default TamableAnimal behavior
+        } else if (eventId == 7) {
+            // Successful taming - show hearts only, sitting is handled separately
+            if (level().isClientSide) {
+                // Show heart particles for successful taming
+                for (int i = 0; i < 7; ++i) {
+                    double d0 = this.random.nextGaussian() * 0.02D;
+                    double d1 = this.random.nextGaussian() * 0.02D;
+                    double d2 = this.random.nextGaussian() * 0.02D;
+                    this.level().addParticle(net.minecraft.core.particles.ParticleTypes.HEART,
+                            this.getRandomX(1.0D), this.getRandomY() + 0.5D, this.getRandomZ(1.0D), d0, d1, d2);
+                }
+            }
+            // IMPORTANT: Don't call super for event 7 either - sitting is explicitly handled in mobInteract
+            return; // Completely skip any default TamableAnimal behavior
+        } else {
+            // Call super for all other entity events (NOT 6 or 7)
+            super.handleEntityEvent(eventId);
         }
     }
 
@@ -1415,7 +1339,7 @@ public class LightningDragonEntity extends TamableAnimal implements GeoEntity, F
         tag.putInt("TimeFlying", timeFlying);
         tag.putFloat("Banking", getBanking());
         tag.putBoolean("UsingAirNav", usingAirNav);
-        tag.putInt("AbilityCooldown", abilityCooldown);
+        tag.putInt("AbilityCooldown", combatManager.getAbilityCooldown());
         tag.putFloat("SitProgress", sitProgress);
         tag.putFloat("LightningStreamProgress", getLightningStreamProgress());
         tag.putBoolean("LightningStreamActive", isLightningStreamActive());
@@ -1433,7 +1357,7 @@ public class LightningDragonEntity extends TamableAnimal implements GeoEntity, F
         this.timeFlying = tag.getInt("TimeFlying");
         this.setBanking(tag.getFloat("Banking"));
         this.usingAirNav = tag.getBoolean("UsingAirNav");
-        this.abilityCooldown = tag.getInt("AbilityCooldown");
+        combatManager.setAbilityCooldown(tag.getInt("AbilityCooldown"));
         this.sitProgress = tag.getFloat("SitProgress");
         this.prevSitProgress = this.sitProgress;
         this.setLightningStreamProgress(tag.getFloat("LightningStreamProgress"));

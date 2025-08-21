@@ -56,14 +56,14 @@ public class LightningDragonRenderer extends GeoEntityRenderer<LightningDragonEn
                           int packedLight,
                           int packedOverlay,
                           float red, float green, float blue, float alpha) {
-
-        super.preRender(poseStack, entity, model, bufferSource, buffer, isReRender,
-                partialTick, packedLight, packedOverlay, red, green, blue, alpha);
-
-        // Basic setup
+        // Basic setup, scale first
         float scale = 4.5f;
         poseStack.scale(scale, scale, scale);
         this.shadowRadius = 0.8f * scale;
+
+        // Then call super.render
+        super.preRender(poseStack, entity, model, bufferSource, buffer, isReRender,
+                partialTick, packedLight, packedOverlay, red, green, blue, alpha);
 
         // Apply all animations
         applyPhysicsBasedAnimations(entity, model, partialTick);
@@ -91,7 +91,7 @@ public class LightningDragonRenderer extends GeoEntityRenderer<LightningDragonEn
 
         // PROFESSIONAL ICE & FIRE LIGHTNING RENDERING
         if (entity.hasLightningTarget()) {
-            renderIceAndFireLightning(entity, poseStack, bufferSource, partialTick);
+            renderLightning(entity, poseStack, bufferSource, partialTick);
         }
     }
 
@@ -143,7 +143,7 @@ public class LightningDragonRenderer extends GeoEntityRenderer<LightningDragonEn
      * AUTHENTIC ICE & FIRE LIGHTNING RENDERING
      * Exact implementation style from RenderLightningDragon.java with professional bolt generation
      */
-    private void renderIceAndFireLightning(LightningDragonEntity entity, PoseStack poseStack, 
+    private void renderLightning(LightningDragonEntity entity, PoseStack poseStack,
                                          MultiBufferSource bufferSource, float partialTick) {
         // Distance check like Ice & Fire
         double dist = entity.distanceTo(net.minecraft.client.Minecraft.getInstance().player);
@@ -151,7 +151,7 @@ public class LightningDragonRenderer extends GeoEntityRenderer<LightningDragonEn
             return;
         }
         
-        Vec3 headPos = entity.getHeadPosition();
+        Vec3 headPos = entity.getMouthPosition();
         Vec3 targetPos = new Vec3(entity.getLightningTargetX(), entity.getLightningTargetY(), entity.getLightningTargetZ());
         
         poseStack.pushPose();

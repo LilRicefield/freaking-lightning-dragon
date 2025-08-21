@@ -43,7 +43,7 @@ public class DragonAirCombatGoal extends Goal {
         LivingEntity target = dragon.getTarget();
         return target != null &&
                 target.isAlive() &&
-                dragon.isFlying() &&
+                (dragon.isFlying() || dragon.isTakeoff()) &&
                 !dragon.isLanding() &&
                 dragon.distanceToSqr(target) < 1600; // 40 block range
     }
@@ -53,7 +53,7 @@ public class DragonAirCombatGoal extends Goal {
         LivingEntity target = dragon.getTarget();
         return target != null &&
                 target.isAlive() &&
-                dragon.isFlying() &&
+                (dragon.isFlying() || dragon.isTakeoff()) &&
                 !dragon.isLanding() &&
                 dragon.distanceToSqr(target) < 2500; // 50 block range
     }
@@ -77,6 +77,19 @@ public class DragonAirCombatGoal extends Goal {
         attackTimer++;
         if (attackCooldown > 0) attackCooldown--;
         if (modeSwitchCooldown > 0) modeSwitchCooldown--;
+
+        // If still taking off, use holding pattern until fully airborne
+        if (dragon.isTakeoff() && !dragon.isFlying()) {
+            executeHoldingPattern(target);
+            return;
+        }
+        
+        // Just transitioned from takeoff to full flight - reset hover state
+        if (dragon.isFlying() && currentAttackMode == null) {
+            selectAttackMode();
+            attackTimer = 0;
+            dragon.setHovering(false); // Clean transition from holding pattern
+        }
 
         // Execute current attack mode
         switch (currentAttackMode) {
@@ -221,6 +234,18 @@ public class DragonAirCombatGoal extends Goal {
         attackTimer = 0;
         attackCooldown = 0;
         dragon.forceEndActiveAbility();
+    }
+
+    private void executeHoldingPattern(LivingEntity target) {
+        // Simple holding pattern during takeoff - just hover near target
+        Vec3 holdPosition = target.position().add(0, 12, 0); // Above target
+        dragon.getMoveControl().setWantedPosition(holdPosition.x, holdPosition.y, holdPosition.z, 0.8);
+        dragon.setHovering(true);
+        
+        // Don't attack during takeoff - just position
+        if (!dragon.level().isClientSide && attackTimer % 40 == 0) {
+            System.out.println("Dragon in holding pattern during takeoff");
+        }
     }
 
     // Public getter for debugging/other systems
