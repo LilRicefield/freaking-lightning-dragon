@@ -105,7 +105,7 @@ public class DragonFollowOwnerGoal extends Goal {
         // Smart flight decision making - Ice and Fire style
         boolean shouldFly = shouldTriggerFlight(owner, distance);
 
-        if (shouldFly && !dragon.isFlying()) {
+        if (shouldFly && !dragon.stateManager.isFlying()) {
             // Take off to follow owner
             dragon.setFlying(true);
             dragon.setTakeoff(true);
@@ -113,7 +113,7 @@ public class DragonFollowOwnerGoal extends Goal {
             if (!dragon.level().isClientSide) {
                 System.out.println("Dragon taking off to follow owner");
             }
-        } else if (!shouldFly && dragon.isFlying() && dragon.onGround()) {
+        } else if (!shouldFly && dragon.stateManager.isFlying() && dragon.onGround()) {
             // Land when we don't need to fly anymore
             dragon.setLanding(true);
 
@@ -123,7 +123,7 @@ public class DragonFollowOwnerGoal extends Goal {
         }
 
         // Movement logic
-        if (dragon.isFlying()) {
+        if (dragon.stateManager.isFlying()) {
             handleFlightFollowing(owner);
         } else {
             handleGroundFollowing(owner, distance);
@@ -186,7 +186,7 @@ public class DragonFollowOwnerGoal extends Goal {
      */
     private boolean shouldTriggerFlight(LivingEntity owner, double distance) {
         // Don't fly if already flying or can't fly
-        if (dragon.isFlying() || dragon.isHovering() || !canTriggerFlight()) {
+        if (dragon.stateManager.isFlying() || dragon.stateManager.isHovering() || !canTriggerFlight()) {
             return false;
         }
 

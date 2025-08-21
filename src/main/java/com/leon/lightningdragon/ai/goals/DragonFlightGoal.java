@@ -33,7 +33,7 @@ public class DragonFlightGoal extends Goal {
     @Override
     public boolean canUse() {
         // Don't interfere with landing sequence
-        if (dragon.isLanding()) {
+        if (dragon.stateManager.isLanding()) {
             return false;
         }
 
@@ -52,7 +52,7 @@ public class DragonFlightGoal extends Goal {
 
         // NEW: Check landing cooldown - don't take off immediately after landing
         long currentTime = dragon.level().getGameTime();
-        if (!dragon.isFlying() && (currentTime - lastLandingTime) < LANDING_COOLDOWN_TICKS) {
+        if (!dragon.stateManager.isFlying() && (currentTime - lastLandingTime) < LANDING_COOLDOWN_TICKS) {
             return false;
         }
 
@@ -64,7 +64,7 @@ public class DragonFlightGoal extends Goal {
             // Weather-based flight decisions
             boolean isStormy = dragon.level().isRaining() || dragon.level().isThundering();
 
-            if (dragon.isFlying()) {
+            if (dragon.stateManager.isFlying()) {
                 isFlying = shouldKeepFlying(isStormy);
             } else {
                 isFlying = shouldTakeOff(isStormy);
@@ -82,7 +82,7 @@ public class DragonFlightGoal extends Goal {
     @Override
     public boolean canContinueToUse() {
         // Let landing system take over
-        if (dragon.isLanding()) {
+        if (dragon.stateManager.isLanding()) {
             return false;
         }
 
@@ -97,19 +97,19 @@ public class DragonFlightGoal extends Goal {
         }
 
         // NEW: Check if dragon wants to land naturally
-        if (dragon.isFlying() && !shouldKeepFlying(dragon.level().isRaining() || dragon.level().isThundering())) {
+        if (dragon.stateManager.isFlying() && !shouldKeepFlying(dragon.level().isRaining() || dragon.level().isThundering())) {
             // Dragon wants to land - trigger landing sequence
-            dragon.setLanding(true);
+            dragon.stateManager.initiateLanding();
             return false;
         }
 
         // Continue if we're flying and have a target
-        return dragon.isFlying() && targetPosition != null && dragon.distanceToSqr(targetPosition) > 9.0;
+        return dragon.stateManager.isFlying() && targetPosition != null && dragon.distanceToSqr(targetPosition) > 9.0;
     }
 
     @Override
     public void start() {
-        dragon.setFlying(true);
+        dragon.stateManager.transitionToFlying();
         if (targetPosition != null) {
             dragon.getMoveControl().setWantedPosition(targetPosition.x, targetPosition.y, targetPosition.z, 1.0);
         }
@@ -120,7 +120,7 @@ public class DragonFlightGoal extends Goal {
         timeSinceTargetChange++;
 
         // If dragon wants to land, let it handle that
-        if (dragon.isLanding()) {
+        if (dragon.stateManager.isLanding()) {
             return;
         }
 
@@ -182,7 +182,7 @@ public class DragonFlightGoal extends Goal {
         dragon.getNavigation().stop();
 
         // NEW: Record landing time for cooldown
-        if (!dragon.isFlying()) {
+        if (!dragon.stateManager.isFlying()) {
             lastLandingTime = dragon.level().getGameTime();
         }
     }

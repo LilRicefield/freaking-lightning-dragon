@@ -32,13 +32,13 @@ public class DragonFlightController {
      * Main flight logic handler called every tick
      */
     public void handleFlightLogic() {
-        if (dragon.isFlying()) {
+        if (dragon.stateManager.isFlying()) {
             handleFlyingTick();
         } else {
             handleGroundedTick();
         }
 
-        if (dragon.isLanding()) {
+        if (dragon.stateManager.isLanding()) {
             handleSimpleLanding();
         }
     }
@@ -61,9 +61,9 @@ public class DragonFlightController {
      * Handles takeoff sequence with upward force and timing
      */
     public void handleTakeoff() {
-        if (!dragon.isFlying()) {
-            dragon.setFlying(true);
-            dragon.setTakeoff(true);
+        if (!dragon.stateManager.isFlying()) {
+            dragon.stateManager.transitionToFlying();
+            dragon.stateManager.setTakeoff(true);
             switchToAirNavigation();
         }
     }
@@ -72,7 +72,7 @@ public class DragonFlightController {
      * Checks if it's safe to land at current position
      */
     public boolean canLandSafely() {
-        if (!dragon.isFlying()) return true;
+        if (!dragon.stateManager.isFlying()) return true;
 
         BlockPos currentPos = dragon.blockPosition();
         for (int y = currentPos.getY() - 1; y >= currentPos.getY() - 10; y--) {
@@ -89,12 +89,12 @@ public class DragonFlightController {
      * Forces aggressive landing for combat situations
      */
     public void initiateAggressiveLanding() {
-        if (!dragon.isFlying()) return;
+        if (!dragon.stateManager.isFlying()) return;
 
-        dragon.setLanding(true);
-        dragon.setRunning(true);
+        dragon.stateManager.initiateLanding();
+        dragon.stateManager.setRunning(true);
         dragon.getNavigation().stop();
-        dragon.setHovering(true);
+        dragon.stateManager.setHovering(true);
         dragon.landingTimer = 0;
     }
 
@@ -102,7 +102,7 @@ public class DragonFlightController {
      * Handles flight travel behavior based on current flight state
      */
     public void handleFlightTravel(Vec3 motion) {
-        if (dragon.isTakeoff() || dragon.isHovering()) {
+        if (dragon.stateManager.isTakeoff() || dragon.stateManager.isHovering()) {
             handleHoveringTravel(motion);
         } else {
             handleGlidingTravel(motion);
@@ -119,9 +119,9 @@ public class DragonFlightController {
 
         // Auto-land when sitting or being a passenger
         if (dragon.isOrderedToSit() || dragon.isPassenger()) {
-            dragon.setTakeoff(false);
-            dragon.setHovering(false);
-            dragon.setFlying(false);
+            dragon.stateManager.setTakeoff(false);
+            dragon.stateManager.setHovering(false);
+            dragon.stateManager.setFlying(false);
             return;
         }
 
@@ -134,10 +134,10 @@ public class DragonFlightController {
 
     private void handleServerFlightLogic() {
         // Update takeoff state
-        dragon.setTakeoff(shouldTakeoff() && dragon.isFlying());
+        dragon.stateManager.setTakeoff(shouldTakeoff() && dragon.stateManager.isFlying());
 
         // Handle takeoff physics
-        if (dragon.isTakeoff() && dragon.isFlying() && dragon.isAlive()) {
+        if (dragon.stateManager.isTakeoff() && dragon.stateManager.isFlying() && dragon.isAlive()) {
             if (dragon.timeFlying < TAKEOFF_TIME_THRESHOLD) {
                 dragon.setDeltaMovement(dragon.getDeltaMovement().add(0, TAKEOFF_UPWARD_FORCE, 0));
             }
@@ -147,10 +147,10 @@ public class DragonFlightController {
         }
 
         // Landing logic when touching ground
-        if (!dragon.isTakeoff() && dragon.isFlying() && dragon.timeFlying > LANDING_TIME_THRESHOLD && dragon.onGround()) {
+        if (!dragon.stateManager.isTakeoff() && dragon.stateManager.isFlying() && dragon.timeFlying > LANDING_TIME_THRESHOLD && dragon.onGround()) {
             LivingEntity target = dragon.getTarget();
             if (target == null || !target.isAlive()) {
-                dragon.setFlying(false);
+                dragon.stateManager.setFlying(false);
             }
         }
     }
@@ -164,7 +164,7 @@ public class DragonFlightController {
     }
 
     private void handleFlightPitchControl() {
-        if (!dragon.isFlying() || dragon.isLanding() || dragon.isHovering()) return;
+        if (!dragon.stateManager.isFlying() || dragon.stateManager.isLanding() || dragon.stateManager.isHovering()) return;
 
         Vec3 velocity = dragon.getDeltaMovement();
         double horizontalSpeed = Math.sqrt(velocity.x * velocity.x + velocity.z * velocity.z);
@@ -181,10 +181,7 @@ public class DragonFlightController {
             dragon.landingTimer++;
 
             if (dragon.landingTimer > 60 || dragon.onGround()) {
-                dragon.setLanding(false);
-                dragon.setFlying(false);
-                dragon.setTakeoff(false);
-                dragon.setHovering(false);
+                dragon.stateManager.completeLanding();
                 switchToGroundNavigation();
             }
         }

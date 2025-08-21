@@ -43,8 +43,8 @@ public class DragonAirCombatGoal extends Goal {
         LivingEntity target = dragon.getTarget();
         return target != null &&
                 target.isAlive() &&
-                (dragon.isFlying() || dragon.isTakeoff()) &&
-                !dragon.isLanding() &&
+                (dragon.stateManager.isFlying() || dragon.stateManager.isTakeoff()) &&
+                !dragon.stateManager.isLanding() &&
                 dragon.distanceToSqr(target) < 1600; // 40 block range
     }
 
@@ -53,8 +53,8 @@ public class DragonAirCombatGoal extends Goal {
         LivingEntity target = dragon.getTarget();
         return target != null &&
                 target.isAlive() &&
-                (dragon.isFlying() || dragon.isTakeoff()) &&
-                !dragon.isLanding() &&
+                (dragon.stateManager.isFlying() || dragon.stateManager.isTakeoff()) &&
+                !dragon.stateManager.isLanding() &&
                 dragon.distanceToSqr(target) < 2500; // 50 block range
     }
 
@@ -62,7 +62,7 @@ public class DragonAirCombatGoal extends Goal {
     public void start() {
         selectAttackMode();
         attackTimer = 0;
-        dragon.setHovering(false); // Start with movement
+        dragon.stateManager.setHovering(false); // Start with movement
     }
 
     @Override
@@ -79,16 +79,16 @@ public class DragonAirCombatGoal extends Goal {
         if (modeSwitchCooldown > 0) modeSwitchCooldown--;
 
         // If still taking off, use holding pattern until fully airborne
-        if (dragon.isTakeoff() && !dragon.isFlying()) {
+        if (dragon.stateManager.isTakeoff() && !dragon.stateManager.isFlying()) {
             executeHoldingPattern(target);
             return;
         }
         
         // Just transitioned from takeoff to full flight - reset hover state
-        if (dragon.isFlying() && currentAttackMode == null) {
+        if (dragon.stateManager.isFlying() && currentAttackMode == null) {
             selectAttackMode();
             attackTimer = 0;
-            dragon.setHovering(false); // Clean transition from holding pattern
+            dragon.stateManager.setHovering(false); // Clean transition from holding pattern
         }
 
         // Execute current attack mode
@@ -119,12 +119,13 @@ public class DragonAirCombatGoal extends Goal {
             attackTarget = target.position().add(0, 15, 0);
         } else {
             // Good distance - hover and attack
-            dragon.setHovering(true);
+            dragon.stateManager.setHovering(true);
             attackTarget = dragon.position(); // Stay in place
 
             // SMART attack selection based on distance
             if (attackCooldown <= 0) {
                 if (dragon.tryUseRangedAbility()) {
+                    dragon.stateManager.beginLightningAttack(target.position());
                     attackCooldown = 40;
                 }
             }
@@ -135,7 +136,7 @@ public class DragonAirCombatGoal extends Goal {
 
 
     private void executeLightningDive(LivingEntity target) {
-        dragon.setHovering(false);
+        dragon.stateManager.setHovering(false);
 
         // Dive at target
         Vec3 targetPos = target.position().add(0, target.getBbHeight() / 2, 0);
@@ -159,7 +160,7 @@ public class DragonAirCombatGoal extends Goal {
     }
 
     private void executeStrafeRun(LivingEntity target) {
-        dragon.setHovering(false);
+        dragon.stateManager.setHovering(false);
 
         double distance = dragon.distanceTo(target);
 
@@ -175,6 +176,7 @@ public class DragonAirCombatGoal extends Goal {
             // Fire lightning breath while strafing
             if (distance < 25 && dragon.canUseAbility() && attackCooldown <= 0) {
                 dragon.sendAbilityMessage(LightningDragonEntity.LIGHTNING_BREATH_ABILITY);
+                dragon.stateManager.beginLightningAttack(target.position());
                 attackCooldown = 40;
             }
         }
@@ -227,7 +229,7 @@ public class DragonAirCombatGoal extends Goal {
 
     @Override
     public void stop() {
-        dragon.setHovering(false);
+        dragon.stateManager.setHovering(false);
         dragon.getNavigation().stop();
         attackTarget = null;
         currentAttackMode = null;
@@ -240,7 +242,7 @@ public class DragonAirCombatGoal extends Goal {
         // Simple holding pattern during takeoff - just hover near target
         Vec3 holdPosition = target.position().add(0, 12, 0); // Above target
         dragon.getMoveControl().setWantedPosition(holdPosition.x, holdPosition.y, holdPosition.z, 0.8);
-        dragon.setHovering(true);
+        dragon.stateManager.setHovering(true);
         
         // Don't attack during takeoff - just position
         if (!dragon.level().isClientSide && attackTimer % 40 == 0) {

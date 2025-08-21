@@ -20,8 +20,8 @@ public class DragonGroundCombatGoal extends Goal {
         LivingEntity target = dragon.getTarget();
         return target != null &&
                 target.isAlive() &&
-                !dragon.isFlying() &&
-                !dragon.isHovering() &&
+                !dragon.stateManager.isFlying() &&
+                !dragon.stateManager.isHovering() &&
                 dragon.distanceToSqr(target) < 1600; // 40 block range
     }
 
@@ -30,8 +30,8 @@ public class DragonGroundCombatGoal extends Goal {
         LivingEntity target = dragon.getTarget();
         return target != null &&
                 target.isAlive() &&
-                !dragon.isFlying() &&
-                !dragon.isHovering() &&
+                !dragon.stateManager.isFlying() &&
+                !dragon.stateManager.isHovering() &&
                 dragon.distanceToSqr(target) < 2500; // 50 block range
     }
 
@@ -41,7 +41,7 @@ public class DragonGroundCombatGoal extends Goal {
         if (target == null) return;
 
 
-        dragon.setRunning(true);
+        dragon.stateManager.setRunning(true);
         dragon.getNavigation().moveTo(target, 1.0);
 
         // Look at target
@@ -66,7 +66,7 @@ public class DragonGroundCombatGoal extends Goal {
 
     @Override
     public void stop() {
-        dragon.setRunning(false);
+        dragon.stateManager.setRunning(false);
         dragon.getNavigation().stop();
         attackCooldown = 0;
         dragon.forceEndActiveAbility();

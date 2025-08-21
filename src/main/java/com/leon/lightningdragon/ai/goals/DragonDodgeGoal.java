@@ -60,7 +60,7 @@ public class DragonDodgeGoal extends Goal {
     public boolean canUse() {
         if (!dragon.isAlive()) return false;
         if (dragon.isTame() && dragon.isVehicle()) return false;
-        if (dragon.isDodging()) return false;
+        if (dragon.stateManager.isDodging()) return false;
 
         long now = dragon.level().getGameTime();
         if (now < nextScanTime) return false;
@@ -94,8 +94,8 @@ public class DragonDodgeGoal extends Goal {
 
         if (dodgeDirection.equals(Vec3.ZERO)) return false;
 
-        double latImpulse = dragon.isFlying() ? FLY_LAT_IMP : GND_LAT_IMP;
-        double upImpulse = dragon.isFlying() ? FLY_UP_IMP : GND_UP_IMP;
+        double latImpulse = dragon.stateManager.isFlying() ? FLY_LAT_IMP : GND_LAT_IMP;
+        double upImpulse = dragon.stateManager.isFlying() ? FLY_UP_IMP : GND_UP_IMP;
 
         // Clamp the vector length using your utility
         Vec3 dodgeVec = new Vec3(
@@ -106,7 +106,7 @@ public class DragonDodgeGoal extends Goal {
 
         dodgeVec = DragonMathUtil.clampVectorLength(dodgeVec, 1.5); // Max dodge strength
 
-        dragon.beginDodge(dodgeVec, DODGE_TICKS);
+        dragon.stateManager.beginDodge(dodgeVec, DODGE_TICKS);
         nextAllowedDodgeTime = now + COOLDOWN;
         return true;
     }

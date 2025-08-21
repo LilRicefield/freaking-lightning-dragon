@@ -194,7 +194,7 @@ public class LightningDragonEntity extends TamableAnimal implements GeoEntity, F
             SynchedEntityData.defineId(LightningDragonEntity.class, EntityDataSerializers.FLOAT);
     static final EntityDataAccessor<Boolean> LIGHTNING_STREAM_ACTIVE =
             SynchedEntityData.defineId(LightningDragonEntity.class, EntityDataSerializers.BOOLEAN);
-    
+
     // Sitting progress for animation only - logic handled by TamableAnimal
     public static final EntityDataAccessor<Float> DATA_SIT_PROGRESS =
             SynchedEntityData.defineId(LightningDragonEntity.class, EntityDataSerializers.FLOAT);
@@ -210,6 +210,9 @@ public class LightningDragonEntity extends TamableAnimal implements GeoEntity, F
     float prevSitProgress = 0f;
     public float sitProgress = 0f;
     public boolean hasRunningAttributes = false;
+    
+    // Banking tracking like EntityNaga
+    private float prevRotationYaw = 0f;
 
     // Dodge system
     boolean dodging = false;
@@ -229,11 +232,11 @@ public class LightningDragonEntity extends TamableAnimal implements GeoEntity, F
 
     // ===== CUSTOM SITTING SYSTEM =====
     // Completely replace TamableAnimal's broken sitting behavior
-    
+
     public float maxSitTicks() {
         return 15.0F; // Takes 15 ticks to fully sit (about 0.75 seconds)
     }
-    
+
     public float getSitProgress(float partialTicks) {
         // Use synchronized data on client side, local data on server side
         float currentProgress = level().isClientSide ? this.entityData.get(DATA_SIT_PROGRESS) : sitProgress;
@@ -373,45 +376,45 @@ public class LightningDragonEntity extends TamableAnimal implements GeoEntity, F
     // Combat distance constants
     private static final double BEAM_RANGE = 30.0;      // Use beam at very long range
     private static final double BURST_RANGE = 20.0;     // Use burst at long range
-    private static final double BREATH_RANGE = 8.0;     // Use breath at medium range  
+    private static final double BREATH_RANGE = 8.0;     // Use breath at medium range
     private static final double MELEE_RANGE = 6.0;      // Land and use melee at close range
 
     // ===== ABILITY SYSTEM METHODS =====
     public boolean tryUseRangedAbility() {
         return combatManager.tryUseRangedAbility();
     }
-    
+
     // Strategic ultimate ability usage
     private boolean shouldUseUltimate() {
         LivingEntity target = getTarget();
         if (target == null) return false;
-        
+
         // Check if ultimate is on cooldown (Lightning Burst specifically)
         Ability<LightningDragonEntity> burstAbility = LIGHTNING_BURST_ABILITY.createAbility(this);
         if (!burstAbility.tryAbility()) return false; // Still on cooldown or can't be used
-        
+
         // Only use ultimate for tough targets with high health
         float targetHealthPercent = target.getHealth() / target.getMaxHealth();
-        
+
         // Use ultimate if:
         // - Target has >75% health (fresh fight)
-        // - Target has >40 max health (strong enemy)  
+        // - Target has >40 max health (strong enemy)
         // - Combat has been going on for a while (frustrated dragon)
-        return targetHealthPercent > 0.75f || 
-               target.getMaxHealth() > 40.0f ||
-               (tickCount % 600 == 0); // Every 30 seconds as desperation move
+        return targetHealthPercent > 0.75f ||
+                target.getMaxHealth() > 40.0f ||
+                (tickCount % 600 == 0); // Every 30 seconds as desperation move
     }
 
     // Landing safety and combat landing methods
     private boolean canLandSafely() {
         if (!isFlying()) return true; // Already on ground
-        
+
         // Check if there's solid ground within reasonable distance below
         BlockPos currentPos = blockPosition();
         for (int y = currentPos.getY() - 1; y >= currentPos.getY() - 10; y--) {
             BlockPos checkPos = new BlockPos(currentPos.getX(), y, currentPos.getZ());
-            if (!level().getBlockState(checkPos).isAir() && 
-                level().getBlockState(checkPos.above()).getCollisionShape(level(), checkPos.above()).isEmpty()) {
+            if (!level().getBlockState(checkPos).isAir() &&
+                    level().getBlockState(checkPos.above()).getCollisionShape(level(), checkPos.above()).isEmpty()) {
                 // Found solid ground with space above
                 return true;
             }
@@ -421,15 +424,15 @@ public class LightningDragonEntity extends TamableAnimal implements GeoEntity, F
 
     private void initiateAggressiveLanding() {
         if (!isFlying()) return;
-        
+
         // Force landing for combat
         setLanding(true);
         setRunning(true); // Make approach more aggressive
-        
-        // Stop current navigation and hover briefly before descent  
+
+        // Stop current navigation and hover briefly before descent
         getNavigation().stop();
         setHovering(true);
-        
+
         // Brief delay before full descent
         landingTimer = 0;
     }
@@ -640,40 +643,44 @@ public class LightningDragonEntity extends TamableAnimal implements GeoEntity, F
     public void tick() {
         animationController.tick();
         super.tick();
-        
+
         // Delegate to controllers
         combatManager.validateCurrentTarget();
         flightController.handleFlightLogic();
         combatManager.tick();
         stateManager.updateRunningAttributes();
         interactionHandler.updateSittingProgress();
-        
-        if (!level().isClientSide && (!stateManager.isFlying() || stateManager.isLanding())) {
+
+        // Update banking based on rotation changes (EntityNaga approach)
+        if (!level().isClientSide && stateManager.isFlying()) {
+            stateManager.updateBankingFromRotation(getYRot(), prevRotationYaw);
+            prevRotationYaw = getYRot();
+        } else if (!level().isClientSide && (!stateManager.isFlying() || stateManager.isLanding())) {
             updateBankingReset();
         }
         if (!level().isClientSide) {
             handleAmbientSounds();
         }
-        
+
         // Handle dodge movement first
         if (!level().isClientSide && stateManager.isDodging()) {
             handleDodgeMovement();
             return;
         }
-        
+
         // Track running time for animations
         if (stateManager.isRunning()) {
             runningTicks++;
         } else {
             runningTicks = Math.max(0, runningTicks - 2);
         }
-        
+
         // Update client-side sit progress from synchronized data
         if (level().isClientSide) {
             prevSitProgress = sitProgress;
             sitProgress = this.entityData.get(DATA_SIT_PROGRESS);
         }
-        
+
         stateManager.autoStopRunning();
     }
     /**
@@ -1117,7 +1124,7 @@ public class LightningDragonEntity extends TamableAnimal implements GeoEntity, F
     @Override
     public void setOrderedToSit(boolean sitting) {
         super.setOrderedToSit(sitting);
-        
+
         if (sitting) {
             // Force landing if flying when ordered to sit
             if (isFlying()) {
@@ -1382,9 +1389,9 @@ public class LightningDragonEntity extends TamableAnimal implements GeoEntity, F
     public List<LivingEntity> getCachedNearbyHostiles() {
         return getCachedValue("nearbyHostiles", 8, () -> {
             return level().getEntitiesOfClass(LivingEntity.class, getBoundingBox().inflate(16.0),
-                    entity -> entity != this && entity != getOwner() && 
-                             entity.isAlive() && !isTame() || 
-                             (entity instanceof Player player && !player.isCreative()));
+                    entity -> entity != this && entity != getOwner() &&
+                            entity.isAlive() && !isTame() ||
+                            (entity instanceof Player player && !player.isCreative()));
         });
     }
 
