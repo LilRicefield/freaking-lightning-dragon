@@ -1,8 +1,6 @@
 package com.leon.lightningdragon.entity.controller;
 
-import com.leon.lightningdragon.ai.navigation.DragonFlightMoveHelper;
 import com.leon.lightningdragon.entity.LightningDragonEntity;
-import com.leon.lightningdragon.mixin.MobAccessor;
 import net.minecraft.core.BlockPos;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.LivingEntity;
@@ -49,22 +47,14 @@ public class DragonFlightController {
      * Switches dragon to air navigation mode
      */
     public void switchToAirNavigation() {
-        if (!dragon.usingAirNav) {
-            ((MobAccessor) dragon).setNavigationAccessor(dragon.airNav);
-            ((MobAccessor) dragon).setMoveControlAccessor(new DragonFlightMoveHelper(dragon));
-            dragon.usingAirNav = true;
-        }
+        dragon.switchToAirNavigation();
     }
 
     /**
      * Switches dragon to ground navigation mode
      */
     public void switchToGroundNavigation() {
-        if (dragon.usingAirNav) {
-            ((MobAccessor) dragon).setNavigationAccessor(dragon.airNav);
-            ((MobAccessor) dragon).setMoveControlAccessor(new DragonFlightMoveHelper(dragon));
-            dragon.usingAirNav = false;
-        }
+        dragon.switchToGroundNavigation();
     }
 
     /**
@@ -88,7 +78,7 @@ public class DragonFlightController {
         for (int y = currentPos.getY() - 1; y >= currentPos.getY() - 10; y--) {
             BlockPos checkPos = new BlockPos(currentPos.getX(), y, currentPos.getZ());
             if (!dragon.level().getBlockState(checkPos).isAir() &&
-                dragon.level().getBlockState(checkPos.above()).getCollisionShape(dragon.level(), checkPos.above()).isEmpty()) {
+                    dragon.level().getBlockState(checkPos.above()).getCollisionShape(dragon.level(), checkPos.above()).isEmpty()) {
                 return true;
             }
         }
@@ -195,6 +185,7 @@ public class DragonFlightController {
                 dragon.setFlying(false);
                 dragon.setTakeoff(false);
                 dragon.setHovering(false);
+                switchToGroundNavigation();
             }
         }
     }

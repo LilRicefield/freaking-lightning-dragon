@@ -517,7 +517,7 @@ public class LightningDragonEntity extends TamableAnimal implements GeoEntity, F
     }
 
     // ===== NAVIGATION SWITCHING =====
-    private void switchToAirNavigation() {
+    public void switchToAirNavigation() {
         if (!this.usingAirNav) {
             this.navigation = this.airNav;
             this.moveControl = new DragonFlightMoveHelper(this);
@@ -525,7 +525,7 @@ public class LightningDragonEntity extends TamableAnimal implements GeoEntity, F
         }
     }
 
-    private void switchToGroundNavigation() {
+    public void switchToGroundNavigation() {
         if (this.usingAirNav) {
             this.navigation = this.groundNav;
             this.moveControl = new MoveControl(this);
@@ -893,153 +893,9 @@ public class LightningDragonEntity extends TamableAnimal implements GeoEntity, F
             return;
         }
         if (isFlying()) {
-            handleFlightTravel(motion);
+            flightController.handleFlightTravel(motion);
         } else {
             super.travel(motion);
-        }
-    }
-    private void handleFlightTravel(Vec3 motion) {
-        if (isTakeoff() || isHovering()) {
-            handleHoveringTravel(motion);
-        } else {
-            handleGlidingTravel(motion);
-        }
-    }
-    @SuppressWarnings("unused") // Motion parameter for method signature consistency
-    private void handleGlidingTravel(Vec3 motion) {
-        Vec3 vec3 = this.getDeltaMovement();
-
-        if (vec3.y > -0.5D) {
-            this.fallDistance = 1.0F;
-        }
-
-        Vec3 moveDirection = this.getCachedLookDirection().normalize();
-        float pitchRad = this.getXRot() * ((float) Math.PI / 180F);
-
-        // Enhanced gliding physics that responds to animation state
-        vec3 = applyGlidingPhysics(vec3, moveDirection, pitchRad);
-
-        // Dynamic friction based on flight state
-        float horizontalFriction = 0.99F;
-        float verticalFriction = 0.98F;
-        this.setDeltaMovement(vec3.multiply(horizontalFriction, verticalFriction, horizontalFriction));
-        this.move(MoverType.SELF, this.getDeltaMovement());
-    }
-
-    private Vec3 applyGlidingPhysics(Vec3 currentVel, Vec3 moveDirection, float pitchRad) {
-        double horizontalSpeed = Math.sqrt(moveDirection.x * moveDirection.x + moveDirection.z * moveDirection.z);
-        // Early exit if not moving
-        if (horizontalSpeed < 0.001) {
-            return currentVel;
-        }
-
-        double currentHorizontalSpeed = Math.sqrt(currentVel.horizontalDistanceSqr());
-        double lookDirectionLength = moveDirection.length();
-
-        float pitchFactor = Mth.cos(pitchRad);
-        pitchFactor = (float) ((double) pitchFactor * (double) pitchFactor * Math.min(1.0D, lookDirectionLength / 0.4D));
-
-        // Enhanced gravity system that responds to flight animation state
-        double gravity = getGravity();
-
-        Vec3 result = currentVel.add(0.0D, gravity * (-1.0D + (double) pitchFactor * 0.75D), 0.0D);
-
-        // Enhanced lift calculation with animation influence
-        if (result.y < 0.0D && horizontalSpeed > 0.0D) {
-            double liftFactor = getLiftFactor(result, pitchFactor);
-
-            result = result.add(
-                    moveDirection.x * liftFactor / horizontalSpeed,
-                    liftFactor,
-                    moveDirection.z * liftFactor / horizontalSpeed
-            );
-        }
-
-        // Dive calculation (same as before but with animation influence)
-        if (pitchRad < 0.0F && horizontalSpeed > 0.0D) {
-            double diveFactor = currentHorizontalSpeed * (double) (-Mth.sin(pitchRad)) * 0.04D;
-            result = result.add(
-                    -moveDirection.x * diveFactor / horizontalSpeed,
-                    diveFactor * 3.2D,
-                    -moveDirection.z * diveFactor / horizontalSpeed
-            );
-        }
-
-        // Directional alignment (enhanced)
-        if (horizontalSpeed > 0.0D) {
-            double alignmentFactor = 0.1D;
-
-            // Better alignment when gliding efficiently
-
-            result = result.add(
-                    (moveDirection.x / horizontalSpeed * currentHorizontalSpeed - result.x) * alignmentFactor,
-                    0.0D,
-                    (moveDirection.z / horizontalSpeed * currentHorizontalSpeed - result.z) * alignmentFactor
-            );
-        }
-
-        return result;
-    }
-
-    private double getLiftFactor(Vec3 result, double pitchFactor) {
-        double baseLiftFactor = result.y * -0.1D * pitchFactor;
-
-        // FIX: Restore lift enhancement based on wing state
-        double liftMultiplier = 1.0;
-        if (getFlappingFraction() > 0.3f) {
-            liftMultiplier += getFlappingFraction() * 0.6; // Active flapping boosts lift
-        }
-        if (getGlidingFraction() > 0.5f) {
-            liftMultiplier += getGlidingFraction() * 0.4; // Efficient gliding improves lift/drag
-        }
-
-        return baseLiftFactor * liftMultiplier;
-    }
-
-    private double getGravity() {
-        double gravity = 0.08D;
-
-        if (getFlappingFraction() > 0.2f) {
-            gravity *= (1.0 - getFlappingFraction() * 0.5); // Up to 50% gravity reduction
-        } else if (getHoveringFraction() > 0.4f) {
-            gravity *= (1.0 - getHoveringFraction() * 0.3); // Up to 30% gravity reduction
-        }
-
-// Gliding efficiency bonus
-        if (getGlidingFraction() > 0.5f) {
-            gravity *= (1.0 - getGlidingFraction() * 0.2); // Efficient gliding reduces sink rate
-        }
-        return gravity;
-    }
-
-    private void handleHoveringTravel(Vec3 motion) {
-        BlockPos ground = new BlockPos((int) this.getX(), (int) (this.getBoundingBox().minY - 1.0D), (int) this.getZ());
-        float friction = 0.91F;
-
-        if (this.onGround()) {
-            friction = this.level().getBlockState(ground).getFriction(level(), ground, this) * 0.91F;
-        }
-
-        float frictionFactor = 0.16277137F / (friction * friction * friction);
-        friction = 0.91F;
-
-        if (this.onGround()) {
-            friction = this.level().getBlockState(ground).getFriction(level(), ground, this) * 0.91F;
-        }
-
-        this.moveRelative(this.onGround() ? 0.1F * frictionFactor : 0.02F, motion);
-        this.move(MoverType.SELF, this.getDeltaMovement());
-        this.setDeltaMovement(this.getDeltaMovement().scale(friction));
-
-        BlockPos destination = this.getNavigation().getTargetPos();
-        if (destination != null) {
-            double dx = destination.getX() - this.getX();
-            double dy = destination.getY() - this.getY();
-            double dz = destination.getZ() - this.getZ();
-            double distanceToDest = Math.sqrt(dx * dx + dy * dy + dz * dz);
-            if (distanceToDest < 0.1) {
-                setDeltaMovement(0, 0, 0);
-            }
         }
     }
 
@@ -1244,7 +1100,7 @@ public class LightningDragonEntity extends TamableAnimal implements GeoEntity, F
                     if (isFlying()) {
                         this.setLanding(true);
                     } else {
-                        this.setFlying(true);
+                        flightController.handleTakeoff();
                     }
                     return InteractionResult.SUCCESS;
                 }
