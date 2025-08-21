@@ -16,8 +16,8 @@ public class DragonFlightMoveHelper extends MoveControl {
     // Constants for smooth movement
     private static final float MAX_YAW_CHANGE = 4.0F;
     private static final float MAX_PITCH_CHANGE = 8.0F;
-    private static final float SPEED_FACTOR_MIN = 0.1F;
-    private static final float SPEED_FACTOR_MAX = 1.8F;
+    private static final float SPEED_FACTOR_MIN = 0.3F;
+    private static final float SPEED_FACTOR_MAX = 2.5F; // Increased max speed
 
     public DragonFlightMoveHelper(LightningDragonEntity dragon) {
         super(dragon);
@@ -109,27 +109,29 @@ public class DragonFlightMoveHelper extends MoveControl {
                     DragonMathUtil.EasingFunction.EASE_OUT_SINE);
         }
         
-        // Distance-based approach speed scaling using totalDist
-        float approachDistance = 15.0f; // Start slowing down within 15 blocks
+        // Distance-based approach speed scaling - only slow down very close to target
+        float approachDistance = 8.0f; // Only slow down within 8 blocks of target
         if (totalDist < approachDistance) {
             float approachFactor = (float) (totalDist / approachDistance);
             // Use smooth easing for natural approach behavior
             approachFactor = DragonMathUtil.easeOutSine(approachFactor);
-            targetSpeedFactor *= Mth.clamp(approachFactor + 0.3f, 0.3f, 1.0f); // Don't go below 30% speed
+            targetSpeedFactor *= Mth.clamp(approachFactor + 0.6f, 0.6f, 1.0f); // Don't go below 60% speed
         }
         
-        this.speedFactor = Mth.approach(this.speedFactor, targetSpeedFactor, 0.05F);
+        this.speedFactor = Mth.approach(this.speedFactor, targetSpeedFactor, 0.15F); // Faster speed transitions
 
-        // === MOVEMENT APPLICATION ===
-        Vec3 targetPos = new Vec3(this.wantedX, this.wantedY, this.wantedZ);
-        double speed = this.speedFactor * 1.2;
+        // === ENHANCED 3D MOVEMENT APPLICATION (Naga Style) ===
+        float rotationYaw = dragon.getYRot() + 90.0F;
         
-        // Dynamic acceleration based on distance and turn severity
-        double baseAcceleration = 0.1;
-        double acceleration = totalDist > 20.0 ? baseAcceleration * 1.5 : baseAcceleration; // Faster acceleration when far
+        // Decompose motion into X, Y, Z components with proper 3D scaling
+        double xMotion = (double) (this.speedFactor * Mth.cos(rotationYaw * 0.017453292F)) * Math.abs((double) distX / totalDist);
+        double yMotion = (double) (this.speedFactor * Mth.sin(rotationYaw * 0.017453292F)) * Math.abs((double) distZ / totalDist);
+        double zMotion = (double) (this.speedFactor * Mth.sin(desiredPitch * 0.017453292F)) * Math.abs((double) distY / totalDist);
         
-        Vec3 newVelocity = DragonMathUtil.calculateFlightVector(dragon, targetPos, speed, acceleration);
-        dragon.setDeltaMovement(newVelocity);
+        // Apply the motion with smooth acceleration (like Naga's 0.1D scaling)
+        Vec3 motion = dragon.getDeltaMovement();
+        Vec3 newMotion = new Vec3(xMotion, zMotion, yMotion);
+        dragon.setDeltaMovement(motion.add(newMotion.subtract(motion).scale(0.1D)));
     }
 
     /**

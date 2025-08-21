@@ -132,8 +132,8 @@ public class DragonFlightGoal extends Goal {
         } else {
             double distanceToTarget = dragon.distanceToSqr(targetPosition);
 
-            // Reached target
-            if (distanceToTarget < 16.0) {
+            // Reached target - much larger completion distance
+            if (distanceToTarget < 64.0) {
                 needNewTarget = true;
             }
 
@@ -208,9 +208,9 @@ public class DragonFlightGoal extends Goal {
     private Vec3 generateFlightCandidate(Vec3 dragonPos, int attempt) {
         boolean isStuck = dragon.horizontalCollision || stuckCounter > 0 || dragon.isFlightControllerStuck();
 
-        float maxRot = isStuck ? 360 : 160;
-        float range = isStuck ? 20.0f + dragon.getRandom().nextFloat() * 30.0f :
-                30.0f + dragon.getRandom().nextFloat() * 40.0f;
+        float maxRot = isStuck ? 360 : 180;
+        float range = isStuck ? 30.0f + dragon.getRandom().nextFloat() * 40.0f :
+                50.0f + dragon.getRandom().nextFloat() * 80.0f; // Much larger range for exploration
 
         float yRotOffset;
         if (isStuck && attempt < 8) {
@@ -293,13 +293,13 @@ public class DragonFlightGoal extends Goal {
             return true;
         }
 
-        // NEW: Actually make decisions about landing!
+        // FIXED: Much longer flight times for exploration
         if (isStormy) {
-            // During storms, fly longer but still eventually want to land
-            return dragon.getRandom().nextInt(300) != 0; // 1/300 chance to want to land per tick
+            // During storms, fly for much longer periods
+            return dragon.getRandom().nextInt(1200) != 0; // ~1 minute average flight time
         } else {
-            // Clear weather - more likely to want to land and walk around
-            return dragon.getRandom().nextInt(60) != 0; // 1/60 = ~3 seconds average
+            // Clear weather - still fly for reasonable periods
+            return dragon.getRandom().nextInt(800) != 0; // ~40 seconds average flight time
         }
     }
 
