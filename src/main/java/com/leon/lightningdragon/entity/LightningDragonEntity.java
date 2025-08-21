@@ -1237,6 +1237,15 @@ public class LightningDragonEntity extends TamableAnimal implements GeoEntity, F
     }
 
 
+    // ===== ANIMATION TRIGGERS =====
+    /**
+     * Triggers the dodge animation - called when dragon dodges projectiles
+     */
+    public void triggerDodgeAnimation() {
+        // Trigger animation through the action controller using animation name string
+        triggerAnim("action", "animation.lightning_dragon.dodge");
+    }
+
     // ===== GECKOLIB =====
     @Override
     public void registerControllers(AnimatableManager.ControllerRegistrar controllers) {

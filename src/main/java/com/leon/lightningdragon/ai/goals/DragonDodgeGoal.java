@@ -34,10 +34,9 @@ public class DragonDodgeGoal extends Goal {
     private static final double DOT_THREAT    = 0.80;  // how "toward me" the projectile must be (0..1)
     private static final double MIN_SPEED2    = 0.0025; // ignore near-stationary projectiles
 
-    private static final double FLY_LAT_IMP   = 0.80;
-    private static final double GND_LAT_IMP   = 0.55;
-    private static final double FLY_UP_IMP    = 0.40;
-    private static final double GND_UP_IMP    = 0.18;
+    // Dodge impulse constants - flight only
+    private static final double DODGE_LAT_IMPULSE = 0.80;
+    private static final double DODGE_UP_IMPULSE  = 0.40;
 
     private long nextScanTime = 0L;
     private long nextAllowedDodgeTime = 0L; // <-- time-based cooldown
@@ -61,6 +60,9 @@ public class DragonDodgeGoal extends Goal {
         if (!dragon.isAlive()) return false;
         if (dragon.isTame() && dragon.isVehicle()) return false;
         if (dragon.stateManager.isDodging()) return false;
+        
+        // FIXED: Only dodge when flying!
+        if (!dragon.stateManager.isFlying()) return false;
 
         long now = dragon.level().getGameTime();
         if (now < nextScanTime) return false;
@@ -94,14 +96,11 @@ public class DragonDodgeGoal extends Goal {
 
         if (dodgeDirection.equals(Vec3.ZERO)) return false;
 
-        double latImpulse = dragon.stateManager.isFlying() ? FLY_LAT_IMP : GND_LAT_IMP;
-        double upImpulse = dragon.stateManager.isFlying() ? FLY_UP_IMP : GND_UP_IMP;
-
-        // Clamp the vector length using your utility
+        // Since we only dodge when flying, use flight constants directly
         Vec3 dodgeVec = new Vec3(
-                dodgeDirection.x * latImpulse,
-                upImpulse,
-                dodgeDirection.z * latImpulse
+                dodgeDirection.x * DODGE_LAT_IMPULSE,
+                DODGE_UP_IMPULSE,
+                dodgeDirection.z * DODGE_LAT_IMPULSE
         );
 
         dodgeVec = DragonMathUtil.clampVectorLength(dodgeVec, 1.5); // Max dodge strength
@@ -114,8 +113,8 @@ public class DragonDodgeGoal extends Goal {
     @Override
     public void start() {
         dragon.getNavigation().stop();
-        // optional: dragon.triggerDodgeAnim();
-        // optional: dragon.playDodgeCue();
+        // Trigger dodge animation every time
+        dragon.triggerDodgeAnimation();
     }
 
     @Override public boolean canContinueToUse() { return false; }
