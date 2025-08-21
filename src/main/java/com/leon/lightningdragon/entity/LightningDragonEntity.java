@@ -16,6 +16,8 @@ import com.leon.lightningdragon.ai.goals.DragonCombatFlightGoal;
 import com.leon.lightningdragon.registry.ModSounds;
 
 //Minecraft
+import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.api.distmarker.OnlyIn;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.entity.monster.RangedAttackMob;
@@ -1428,7 +1430,6 @@ public class LightningDragonEntity extends TamableAnimal implements GeoEntity, F
         return PlayState.CONTINUE;
     }
     //NO MORE PREDICATES
-
     @Override
     public AnimatableInstanceCache getAnimatableInstanceCache() {
         return geckoCache;
@@ -1447,10 +1448,30 @@ public class LightningDragonEntity extends TamableAnimal implements GeoEntity, F
                 DragonMathUtil.getEntitiesNearby(this, Projectile.class, 30.0));
     }
 
+    @OnlyIn(Dist.CLIENT)
+    private float cachedEyeHeight = this.getEyeHeight(Pose.STANDING); // Default to standing height
+
+    @OnlyIn(Dist.CLIENT)
+    public void setCachedEyeHeight(float height) {
+        this.cachedEyeHeight = height;
+    }
+
+    // Override the getEyePosition method.
+    @Override
+    public float getEyeHeight(Pose pose) {
+        // On the client, return our dynamically calculated eye height.
+        if (this.level().isClientSide) { // Notice the change to level()
+            return this.cachedEyeHeight;
+        }
+        // On the server, fall back to the default behavior.
+        return super.getEyeHeight(pose);
+    }
+
     // Cache head position - used by abilities and rendering
     public Vec3 getCachedHeadPosition() {
         return getCachedValue("headPosition", 2, this::getHeadPosition);
     }
+
 
     // Cache mouth position - used by breath/beam attacks
     public Vec3 getCachedMouthPosition() {

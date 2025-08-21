@@ -8,6 +8,7 @@ import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.api.distmarker.OnlyIn;
 import org.jetbrains.annotations.NotNull;
+import org.joml.Vector3fc;
 import software.bernie.geckolib.renderer.GeoEntityRenderer;
 import software.bernie.geckolib.cache.object.BakedGeoModel;
 import software.bernie.geckolib.cache.object.GeoBone;
@@ -16,7 +17,8 @@ import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.util.Mth;
-
+import org.joml.Matrix4f;
+import org.joml.Vector4f;
 /**
  * FIXED Lightning Dragon Renderer with proper head bone tracking
  */
@@ -61,13 +63,36 @@ public class LightningDragonRenderer extends GeoEntityRenderer<LightningDragonEn
         poseStack.scale(scale, scale, scale);
         this.shadowRadius = 0.8f * scale;
 
-        // Then call super.render
+        // Then call super.preRender
         super.preRender(poseStack, entity, model, bufferSource, buffer, isReRender,
                 partialTick, packedLight, packedOverlay, red, green, blue, alpha);
 
         // Apply all animations
         applyPhysicsBasedAnimations(entity, model, partialTick);
         applyHeadTracking(entity, model, partialTick);
+
+        // Get the head bone from the model.
+        model.getBone("head").ifPresent(headBone -> {
+            org.joml.Vector3d bonePosDouble = headBone.getWorldPosition();
+            org.joml.Vector3f bonePosFloat = new org.joml.Vector3f(
+                    (float) bonePosDouble.x,
+                    (float) bonePosDouble.y,
+                    (float) bonePosDouble.z
+            );
+            Vector4f bonePosition = new Vector4f(bonePosFloat, 1.0f);
+
+            // Get the transformation matrix from the PoseStack
+            Matrix4f transform = poseStack.last().pose();
+
+            // Apply the transformation to get world coordinates
+            bonePosition.mul(transform);
+
+            // Calculate the head's Y-position relative to the entity's base Y-position
+            float relativeHeadY = bonePosition.y() - (float)entity.getY();
+
+            // Cache this new eye height in the entity
+            entity.setCachedEyeHeight(relativeHeadY);
+        });
     }
 
     /**
