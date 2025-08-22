@@ -792,7 +792,7 @@ public class LightningDragonEntity extends TamableAnimal implements GeoEntity, F
         interactionHandler.updateSittingProgress();
 
         // Update banking based on rotation changes (EntityNaga approach)
-        if (!level().isClientSide && stateManager.isFlying()) {
+        if (!level().isClientSide && stateManager.isFlying() && !this.isVehicle()) {
             stateManager.updateBankingFromRotation(getYRot(), prevRotationYaw);
             prevRotationYaw = getYRot();
         } else if (!level().isClientSide && (!stateManager.isFlying() || stateManager.isLanding())) {
@@ -1059,12 +1059,8 @@ public class LightningDragonEntity extends TamableAnimal implements GeoEntity, F
                 this.getNavigation().stop();
             }
             
-            // Update dragon rotation to match rider input during movement
-            if (player.zza != 0 || player.xxa != 0) {
-                this.setYRot(player.getYRot());
-                this.yBodyRot = player.getYRot();
-                this.yHeadRot = player.getYRot();
-            }
+            // Let tickRidden handle rotation and banking smoothly
+            // No instant rotation here - all handled in tickRidden for responsiveness
             
             if (isFlying()) {
                 // Flying movement - handle like Ice & Fire dragons
@@ -1706,12 +1702,60 @@ public class LightningDragonEntity extends TamableAnimal implements GeoEntity, F
         // Clear target when being ridden to prevent AI interference
         this.setTarget(null);
         
-        // Update rotation based on player input during movement
-        if (player.zza != 0 || player.xxa != 0) {
-            this.setRot(player.getYRot(), this.getXRot());
-            this.yBodyRot = player.getYRot();
-            this.yHeadRot = player.getYRot();
+        // Store previous rotation for banking calculation
+        float prevYaw = this.getYRot();
+        
+        // Make dragon responsive to player look direction
+        if (this.isFlying()) {
+            // Flying: BYPASS THE SLOW MATH! Nearly instant response!
+            float targetYaw = player.getYRot();
+            float targetPitch = player.getXRot() * 0.5f; // Scale down pitch for stability
+            
+            // DIRECT ASSIGNMENT with tiny smoothing - no more slow curves!
+            float currentYaw = this.getYRot();
+            float yawDiff = Mth.wrapDegrees(targetYaw - currentYaw);
+            float newYaw = currentYaw + (yawDiff * 0.85f); // 85% instant response
+            this.setYRot(newYaw);
+            
+            float currentPitch = this.getXRot();
+            float pitchDiff = targetPitch - currentPitch;
+            float newPitch = currentPitch + (pitchDiff * 0.8f); // 80% instant response
+            this.setXRot(newPitch);
+                
+            // Update banking based on turning
+            this.handleRiderBanking(this.getYRot(), prevYaw);
+        } else {
+            // Ground: Also direct response 
+            float yawDiff = Math.abs(player.getYRot() - this.getYRot());
+            if (player.zza != 0 || player.xxa != 0 || yawDiff > 5.0f) {
+                float currentYaw = this.getYRot();
+                float targetYaw = player.getYRot();
+                float rawDiff = Mth.wrapDegrees(targetYaw - currentYaw);
+                float newYaw = currentYaw + (rawDiff * 0.75f); // 75% instant response
+                this.setYRot(newYaw);
+                this.setXRot(0); // Keep level on ground
+            }
         }
+        
+        // Update body and head rotation
+        this.yBodyRot = this.getYRot();
+        this.yHeadRot = this.getYRot();
+    }
+    
+    /**
+     * Handle banking when player is riding and turning
+     */
+    private void handleRiderBanking(float currentYaw, float prevYaw) {
+        if (!this.isFlying()) return;
+        
+        // Calculate banking using DragonMathUtil
+        float targetBanking = DragonMathUtil.calculateBanking(currentYaw, prevYaw, 35.0f);
+        
+        // Apply smooth banking transition
+        this.setPrevBanking(this.getBanking());
+        float smoothedBanking = DragonMathUtil.approachSmooth(
+            this.getBanking(), this.getPrevBanking(), targetBanking, 6.0f, 0.25f);
+        this.setBanking(smoothedBanking);
     }
     
     @Override
