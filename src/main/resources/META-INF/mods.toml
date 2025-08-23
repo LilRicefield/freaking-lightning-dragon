@@ -1,0 +1,39 @@
+modLoader="javafml"
+loaderVersion="[47,)"
+license="MIT"
+
+[[mods]]
+modId="lightningdragon"
+version="1.0.0"
+displayName="Lightning Dragon Mod"
+description='''
+Adds a fully animated, AI-driven Lightning Dragon to Minecraft.
+'''
+authors="Leon Baldwin Saint"
+# Optional: points Forge to your main class if you're using @Mod
+# (Forge 1.20.1 auto-discovers via @Mod annotation, but it's nice for docs.)
+# entrypoints=[
+#   "main": "com.leon.lightningdragon.LightningDragonMod"
+# ]
+
+# Dependencies — make sure these match your dev environment.
+[[dependencies.lightningdragon]]
+modId="forge"
+mandatory=true
+versionRange="[47,)"
+ordering="NONE"
+side="BOTH"
+
+[[dependencies.lightningdragon]]
+modId="minecraft"
+mandatory=true
+versionRange="[1.20.1]"
+ordering="NONE"
+side="BOTH"
+
+[[dependencies.lightningdragon]]
+modId="geckolib"
+mandatory=true
+versionRange="[4.7.3,)"
+ordering="AFTER"
+side="BOTH"
