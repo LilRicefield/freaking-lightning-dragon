@@ -186,7 +186,7 @@ public class LightningDragonEntity extends DragonEntity implements FlyingAnimal,
     public static final EntityDataAccessor<Float> DATA_SIT_PROGRESS =
             SynchedEntityData.defineId(LightningDragonEntity.class, EntityDataSerializers.FLOAT);
 
-    // Command system (like Ice & Fire dragons)
+    // Command system
     static final EntityDataAccessor<Integer> DATA_COMMAND =
             SynchedEntityData.defineId(LightningDragonEntity.class, EntityDataSerializers.INT);
 
@@ -435,18 +435,14 @@ public class LightningDragonEntity extends DragonEntity implements FlyingAnimal,
     public <T extends DragonEntity> DragonAbility<T> getActiveAbility() {
         return (DragonAbility<T>) combatManager.getActiveAbility();
     }
-
     // setActiveAbility is now provided by base DragonEntity class
-
     public boolean canUseAbility() {
         return combatManager.canUseAbility();
     }
-
     // TODO: Implement new Dragon ability system
     public void sendAbilityMessage(Object abilityType) {
         combatManager.sendAbilityMessage(abilityType);
     }
-
     public void useRidingAbility(String abilityName) {
         // TODO: Implement new Dragon ability system for riding
     }
@@ -458,40 +454,15 @@ public class LightningDragonEntity extends DragonEntity implements FlyingAnimal,
         riderController.requestRiderTakeoff();
     }
 
-    // Simplified Ice & Fire style head position using your dragon's available properties
     @Override
     public Vec3 getHeadPosition() {
-        // Basic flight adjustments using your dragon's state
-        float sitProg = 0; // Add sit progress if you have it
-        float flyProg = this.isFlying() ? 0.01F : 0;
-        float hoverProg = this.isHovering() ? 0.03F : 0;
-        float pitchY = 0;
-
-        // Use your dragon's actual pitch for head positioning
-        float dragonPitch = -this.getXRot(); // Use entity's pitch
-        if (this.isFlying() || this.isHovering()) {
-            if (dragonPitch > 0) {
-                pitchY = (dragonPitch / 90F) * 1.2F;
-            } else {
-                pitchY = (dragonPitch / 90F) * 3F;
-            }
+        // Use GeckoLib bone position if available
+        Vec3 bonePos = getBonePosition("head");
+        if (bonePos != null) {
+            return bonePos;
         }
-
-        float flightXz = 1.0F + flyProg + hoverProg;
-        float absPitch = Math.abs(dragonPitch) / 90F; // 1 down/up, 0 straight
-        float minXZ = dragonPitch > 20 ? (dragonPitch - 20) * 0.009F : 0;
-
-        // Use your MODEL_SCALE and basic size calculations
-        float renderSize = MODEL_SCALE * 0.3F; // Approximate render size
-        float xzMod = (0.58F - hoverProg * 0.45F + flyProg * 0.2F + absPitch * 0.3F - sitProg) * flightXz * renderSize;
-        float xzModSine = xzMod * (Math.max(0.25F, Mth.cos((float) Math.toRadians(dragonPitch))) - minXZ);
-
-        // THE CRITICAL PART - Use Ice & Fire's coordinate system (yBodyRot + 90)
-        float headPosX = (float) (getX() + (xzModSine) * Mth.cos((float) ((yBodyRot + 90) * Math.PI / 180)));
-        float headPosY = (float) (getY() + (0.7F + (sitProg * 5F) + hoverProg + flyProg + pitchY) * renderSize);
-        float headPosZ = (float) (getZ() + (xzModSine) * Mth.sin((float) ((yBodyRot + 90) * Math.PI / 180)));
-
-        return new Vec3(headPosX, headPosY, headPosZ);
+        // Fallback to eye position
+        return getEyePosition();
     }
 
     // Get mouth position using beam_origin bone from GeckoLib model
@@ -502,13 +473,7 @@ public class LightningDragonEntity extends DragonEntity implements FlyingAnimal,
         if (bonePos != null) {
             return bonePos;
         }
-        
-        // Fallback server-side calculation if bone not found
-        // From the .bbmodel file, beam_origin is at approximately [15, 6.5, -15] in model space
         Vec3 basePos = getHeadPosition();
-        
-        // Transform the locator position to world coordinates
-        // beam_origin locator coordinates from model (in geo units, scaled by MODEL_SCALE)
         double localX = 15.0 / 16.0 * MODEL_SCALE;    // Forward from head
         double localY = 6.5 / 16.0 * MODEL_SCALE;     // Up from head base
         double localZ = -15.0 / 16.0 * MODEL_SCALE;   // Side offset (minimal for mouth)
@@ -536,7 +501,7 @@ public class LightningDragonEntity extends DragonEntity implements FlyingAnimal,
 
         return new Vec3(finalX, finalY, finalZ);
     }
-    
+
     /**
      * Get bone position from GeckoLib model (works on both client and server)
      */
@@ -568,13 +533,13 @@ public class LightningDragonEntity extends DragonEntity implements FlyingAnimal,
             // This ensures compatibility while you set up the bone
             Vec3 basePos = getHeadPosition();
             double localX = 15.0 / 16.0 * MODEL_SCALE;
-            double localY = 6.5 / 16.0 * MODEL_SCALE; 
+            double localY = 6.5 / 16.0 * MODEL_SCALE;
             double localZ = -15.0 / 16.0 * MODEL_SCALE;
-            
+
             double radians = Math.toRadians(-yBodyRot);
             double rotatedX = localX * Math.cos(radians) - localZ * Math.sin(radians);
             double rotatedZ = localX * Math.sin(radians) + localZ * Math.cos(radians);
-            
+
             return new Vec3(basePos.x + rotatedX, basePos.y + localY, basePos.z + rotatedZ);
         }
         return null;
@@ -589,41 +554,41 @@ public class LightningDragonEntity extends DragonEntity implements FlyingAnimal,
         if (!level().isClientSide) {
             return null;
         }
-        
+
         try {
             // Access the client-side renderer to get the model
-            net.minecraft.client.renderer.entity.EntityRenderer<?> renderer = 
+            net.minecraft.client.renderer.entity.EntityRenderer<?> renderer =
                 net.minecraft.client.Minecraft.getInstance().getEntityRenderDispatcher().getRenderer(this);
-                
+
             if (renderer instanceof com.leon.lightningdragon.client.renderer.LightningDragonRenderer dragonRenderer) {
                 // Get the current model from the renderer using the model location, not texture location
                 software.bernie.geckolib.cache.object.BakedGeoModel model = dragonRenderer.getGeoModel().getBakedModel(dragonRenderer.getGeoModel().getModelResource(this));
-                
+
                 // Try to get the locator/bone by name
                 return model.getBone(locatorName).map(bone -> {
                     org.joml.Vector3d bonePos = bone.getWorldPosition();
                     // Scale and transform the bone position to world coordinates
                     // The renderer applies MODEL_SCALE, so account for that
                     double scaledX = bonePos.x * MODEL_SCALE;
-                    double scaledY = bonePos.y * MODEL_SCALE;  
+                    double scaledY = bonePos.y * MODEL_SCALE;
                     double scaledZ = bonePos.z * MODEL_SCALE;
-                    
+
                     // Transform relative to entity position and orientation
                     double radians = Math.toRadians(-yBodyRot); // Negative because Minecraft rotations
                     double rotatedX = scaledX * Math.cos(radians) - scaledZ * Math.sin(radians);
                     double rotatedZ = scaledX * Math.sin(radians) + scaledZ * Math.cos(radians);
-                    
+
                     double worldX = getX() + rotatedX;
                     double worldY = getY() + scaledY;
                     double worldZ = getZ() + rotatedZ;
-                    
+
                     return new Vec3(worldX, worldY, worldZ);
                 }).orElse(null);
             }
         } catch (Exception e) {
             // If anything fails, return null to use fallback
         }
-        
+
         return null;
     }
 
