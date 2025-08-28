@@ -125,14 +125,9 @@ public class LightningDragonEntity extends DragonEntity implements FlyingAnimal,
     // Banking animations removed - now handled by bone manipulation in renderer (like EntityNaga)
 
     // Attack animations - these will be defined in the ability classes
-    public static final RawAnimation LIGHTNING_BREATH = RawAnimation.begin().thenPlay("animation.lightning_dragon.lightning_breath");
     public static final RawAnimation BEAM_START = RawAnimation.begin().thenPlay("animation.lightning_dragon.beam_start");
     public static final RawAnimation LIGHTNING_BEAM = RawAnimation.begin().thenLoop("animation.lightning_dragon.lightning_beam");
     public static final RawAnimation BEAM_END = RawAnimation.begin().thenPlay("animation.lightning_dragon.beam_end");
-    public static final RawAnimation LIGHTNING_BURST = RawAnimation.begin().thenPlay("animation.lightning_dragon.lightning_burst");
-    public static final RawAnimation THUNDER_STOMP = RawAnimation.begin().thenPlay("animation.lightning_dragon.thunder_stomp");
-    public static final RawAnimation WING_LIGHTNING = RawAnimation.begin().thenPlay("animation.lightning_dragon.wing_lightning");
-    public static final RawAnimation ELECTRIC_BITE = RawAnimation.begin().thenPlay("animation.lightning_dragon.electric_bite");
 
     // ===== ABILITY SYSTEM =====
     // TODO: Define new DragonAbilityType abilities here
@@ -432,12 +427,6 @@ public class LightningDragonEntity extends DragonEntity implements FlyingAnimal,
         return new Vec3(getLightningTargetX(), getLightningTargetY(), getLightningTargetZ());
     }
 
-    // Combat distance constants
-    private static final double BEAM_RANGE = 30.0;      // Use beam at very long range
-    private static final double BURST_RANGE = 20.0;     // Use burst at long range
-    private static final double BREATH_RANGE = 8.0;     // Use breath at medium range
-    private static final double MELEE_RANGE = 6.0;      // Land and use melee at close range
-
     // ===== ABILITY SYSTEM METHODS =====
     public boolean tryUseRangedAbility() {
         return combatManager.tryUseRangedAbility();
@@ -498,10 +487,6 @@ public class LightningDragonEntity extends DragonEntity implements FlyingAnimal,
     @Override
     public <T extends DragonEntity> DragonAbility<T> getActiveAbility() {
         return (DragonAbility<T>) combatManager.getActiveAbility();
-    }
-
-    public DragonAbilityType<?, ?> getActiveAbilityType() {
-        return combatManager.getActiveAbilityType();
     }
 
     // setActiveAbility is now provided by base DragonEntity class
@@ -603,9 +588,8 @@ public class LightningDragonEntity extends DragonEntity implements FlyingAnimal,
         double finalX = basePos.x + rotatedX + (lookDirection.x * pitchAdjustment);
         double finalY = basePos.y + localY - (lookDirection.y * pitchAdjustment); // Subtract to go forward when looking down
         double finalZ = basePos.z + rotatedZ + (lookDirection.z * pitchAdjustment);
-        
-        Vec3 result = new Vec3(finalX, finalY, finalZ);
-        return result;
+
+        return new Vec3(finalX, finalY, finalZ);
     }
     
     /**
@@ -826,27 +810,11 @@ public class LightningDragonEntity extends DragonEntity implements FlyingAnimal,
 
     public boolean isAccelerating() { return this.entityData.get(DATA_ACCELERATING); }
     public void setAccelerating(boolean accelerating) { this.entityData.set(DATA_ACCELERATING, accelerating); }
-
-    // Breathing fire state for continuous lightning abilities - Ice & Fire style
-    private boolean breathingFire = false;
-    private int fireStopTicks = 0; // Ice & Fire style hold-to-fire mechanism
     
     // Animation timing for beam_end
     private int beamEndTimer = 0;
 
-    public boolean isBreathingFire() { return breathingFire; }
-    public void setBreathingFire(boolean breathing) {
-        this.breathingFire = breathing;
-        if (breathing) {
-            // Start continuous lightning when breathing fire
-            riderShootFire();
-        }
-    }
-
-    public int getFireStopTicks() { return fireStopTicks; }
-    public void setFireStopTicks(int ticks) { this.fireStopTicks = ticks; }
-
-    // Control state system (like Ice & Fire)
+    // Control state system
     private byte controlState = 0;
 
     public byte getControlState() {
@@ -913,7 +881,6 @@ public class LightningDragonEntity extends DragonEntity implements FlyingAnimal,
         return getRidingPlayer() != null;
     }
 
-    // Old rider input system removed - now using getRiddenInput() vanilla approach
 
     public double getFlightSpeedModifier() {
         return this.getAttributeValue(Attributes.FLYING_SPEED);
@@ -1281,21 +1248,7 @@ public class LightningDragonEntity extends DragonEntity implements FlyingAnimal,
         public void tick() {
             // TODO: SPECIAL CASE: During lightning beam ability with rider, use rider's look direction
             // Replace with new Dragon ability system check
-            if (false) {
-                
-                Player rider = this.dragon.getRidingPlayer();
-                
-                // Set dragon's head rotation to match rider's look direction
-                this.dragon.yHeadRot = rider.yHeadRot;
-                this.dragon.yHeadRotO = rider.yHeadRotO;
-                this.dragon.setXRot(rider.getXRot());
-                this.dragon.xRotO = rider.xRotO;
-                
-                // Keep body rotation separate - don't force it to match head
-                // This allows head-only movement
-                return; // Skip normal look controller logic
-            }
-            
+
             if (this.dragon.getTarget() != null) {
                 // SINGLE simple look control - no isAttacking() conditions
                 LivingEntity target = this.dragon.getTarget();
@@ -1777,46 +1730,24 @@ public class LightningDragonEntity extends DragonEntity implements FlyingAnimal,
         if (this.cachedEyeHeight > 0f) {
             return this.cachedEyeHeight;
         }
-        
         // Fallback: Much lower multiplier - your dragon's head is probably lower than 75%
         EntityDimensions dimensions = getDimensions(pose);
-        float fallback = dimensions.height * 0.6f; // Try 60% instead of 75%
-        
-        
-        return fallback;
+        // Try 60% instead of 75%
+        return dimensions.height * 0.6f;
     }
     
     @Override
-    protected float getStandingEyeHeight(Pose pose, EntityDimensions dimensions) {
+    protected float getStandingEyeHeight(@NotNull Pose pose, @NotNull EntityDimensions dimensions) {
         // Always use cached value when available (both client and server need this)
         if (this.cachedEyeHeight > 0f) {
             return this.cachedEyeHeight;
         }
         
         // Fallback: Match the getEyeHeight calculation
-        float fallback = dimensions.height * 0.6f; // Same as above
-        
-        
-        return fallback;
-    }
-    // Cache head position - used by abilities and rendering
-    public Vec3 getCachedHeadPosition() {
-        return getCachedValue("headPosition", 2, this::getHeadPosition);
-    }
-    // Cache mouth position - used by breath/beam attacks
-    public Vec3 getCachedMouthPosition() {
-        return getCachedValue("mouthPosition", 2, this::getMouthPosition);
-    }
-    // Cache distance to current target - used in combat decisions
-    public double getCachedDistanceToTarget() {
-        return getCachedValue("targetDistance", 3, () -> {
-            LivingEntity target = getTarget();
-            return target != null ? distanceTo(target) : Double.MAX_VALUE;
-        });
-    }
-    // Cache current block position - used for pathfinding/ground checks
-    public BlockPos getCachedBlockPosition() {
-        return getCachedValue("blockPosition", 5, this::blockPosition);
+        // Same as above
+
+
+        return dimensions.height * 0.6f;
     }
     // Cache horizontal flight speed - used in physics calculations
     public double getCachedHorizontalSpeed() {
@@ -1915,15 +1846,6 @@ public class LightningDragonEntity extends DragonEntity implements FlyingAnimal,
      */
     public void stimulateFire(double burnX, double burnY, double burnZ, int syncType) {
         lightningSystem.stimulateFire(burnX, burnY, burnZ, syncType);
-    }
-    /**
-     * Ray tracing for rider targeting - determines where the rider is looking
-     */
-    public net.minecraft.world.phys.HitResult rayTraceRider(Player rider, double maxDistance, float partialTicks) {
-        return lightningSystem.rayTraceRider(rider, maxDistance, partialTicks);
-    }
-    public void riderShootFire() {
-        lightningSystem.riderShootFire();
     }
     private void updateLightningBeamFireStopLogic() {
         lightningSystem.updateLightningBeamFireStopLogic();
