@@ -1,0 +1,129 @@
+GeckoLib 4.7.4 Animation Plan for a Custom Wyvern Entity
+Setting Up a GeckoLib Animated Entity (Forge 1.20.1)
+To animate your lightning wyvern with GeckoLib 4.7.4, follow these steps:
+1.	Entity Class – Make your entity class implement GeoEntity (a subinterface of GeoAnimatable for entities)[1]. This requires overriding two methods:
+2.	getAnimatableInstanceCache() – return a new AnimatableInstanceCache for this entity, created via GeckoLibUtil.createInstanceCache(this)[1].
+3.	registerControllers(AnimatableManager.ControllerRegistrar controllers) – register one or more AnimationController instances here to define your animation states[1].
+4.	Animatable Cache – In your entity constructor or field declarations, instantiate a final cache. For example: private final AnimatableInstanceCache geoCache = GeckoLibUtil.createInstanceCache(this); and return it in getAnimatableInstanceCache()[2][3]. This ensures each entity has its own animation state tracking.
+5.	Animation Controllers – In registerControllers, create and add controllers. For example, you might add a movement controller:
+ 	controllers.add(new AnimationController<>(this, "Movement", 5, this::movementPredicate));
+ 	Here "Movement" is an arbitrary name for the controller, and 5 is the transition length in ticks (0.25 seconds) for smooth blending[4]. The last parameter is a predicate (callback) that decides which animation to play based on entity state.
+6.	Renderer and Model – Register a custom renderer extending GeoEntityRenderer<WyvernEntity> in your mod's client setup (e.g. using EntityRenderersEvent.RegisterRenderers on Forge)[5]. The renderer’s constructor should call super(context, new WyvernModel()); to tie your model. The model class typically extends GeoModel<WyvernEntity> or uses a provided default model class (see below).
+By following the above, your entity is recognized as a GeoLib animatable and its animations can run[6][7]. For example, a minimal entity setup could be:
+public class WyvernEntity extends PathfinderMob implements GeoEntity {
+    private final AnimatableInstanceCache cache = GeckoLibUtil.createInstanceCache(this);
+    // ... constructors, etc ...
+
+    @Override
+    public void registerControllers(AnimatableManager.ControllerRegistrar controllers) {
+        controllers.add(new AnimationController<>(this, "Movement", 5, this::movementPredicate));
+        // You can add more controllers for different animation layers if needed
+    }
+
+    @Override
+    public AnimatableInstanceCache getAnimatableInstanceCache() {
+        return this.cache;
+    }
+}
+Make sure to register your entity type and renderer. If the game crashes when spawning the mob with a null renderer error, it means the renderer wasn’t registered[8].
+Integrating Blockbench Models and Animations
+Using Blockbench (with the GeckoLib plugin or Bedrock entity format) is ideal for creating your wyvern’s model and animation files. GeckoLib 4.7.4 fully supports the Bedrock animation format[9]. To integrate these:
+•	Model and Animation Files: Export your Blockbench model as <entity>.geo.json and animations as <entity>.animation.json. By convention, place them under your mod’s resources:
+•	assets/<modid>/geo/.../<entity>.geo.json (model)
+•	assets/<modid>/animations/.../<entity>.animation.json (animations)
+•	assets/<modid>/textures/.../<entity>.png (texture)
+For example, GeckoLib’s DefaultedEntityGeoModel expects files like: geo/entity/monster/my_entity.geo.json, animations/entity/monster/my_entity.animation.json, etc.[10]. Using consistent folder structure helps GeckoLib find them automatically.
+•	GeoModel Class: You can either extend GeoModel<WyvernEntity> and override methods to supply those resource locations, or use the convenience class DefaultedEntityGeoModel. For instance:
+ 	public class WyvernModel extends DefaultedEntityGeoModel<WyvernEntity> {
+    public WyvernModel() {
+        super(new ResourceLocation("yourmodid", "wyvern/wyvern_entity"), true);
+    }
+}
+ 	In this example, the true in the constructor enables automatic head rotation (discussed below) and the base path wyvern/wyvern_entity tells it to load .../geo/wyvern/wyvern_entity.geo.json, .../animations/wyvern/wyvern_entity.animation.json, and the corresponding texture[11][12]. Adjust the path/naming to match your files.
+•	Animation Names: In your code, refer to animations by their names as defined in the JSON. Blockbench (Bedrock/GeckoLib) typically names animations like "animation.<modelname>.<animname>". For example, if your model is wyvern_entity and you created an animation named fly, the full name might be "animation.wyvern_entity.fly". You can confirm the exact string in the .animation.json file. Use that string when building animations in code (see next section) or use Blockbench’s names directly via GeckoLib’s RawAnimation builder.
+Tip: Blockbench allows adding easing curves and even Molang expressions to keyframes. GeckoLib will honor those – so a smooth easing or “catmullRom” spline set in Blockbench will result in smooth motion in-game (GeckoLib 4.7.4 added native Catmull-Rom support for Bedrock animations)[13]. Keep your bone hierarchy and pivots consistent (e.g. wings hinged at the shoulders, etc.) for animations to look correct.
+Animation Controllers and State Logic
+Animation Controllers in GeckoLib determine which animation plays based on your entity’s state each tick. Each controller can handle one animation at a time (looping or one-shot). For a wyvern, you might set up controllers for different behaviors, such as movement (ground or flight) and maybe an attack or idle-specific controller. Key points:
+•	Defining Animations in Code: Instead of using raw strings everywhere, GeckoLib 4 uses RawAnimation objects (replacing the old AnimationBuilder)[14][15]. You create a RawAnimation via RawAnimation.begin() and chain calls like .thenLoop("animation.wyvern_entity.fly") or .thenPlay("..."). It’s best to define these as static final constants so they aren’t re-created every frame[16]. For example:
+ 	private static final RawAnimation FLY_ANIM = RawAnimation.begin().thenLoop("animation.wyvern_entity.fly");
+private static final RawAnimation WALK_ANIM = RawAnimation.begin().thenLoop("animation.wyvern_entity.walk");
+private static final RawAnimation IDLE_ANIM = RawAnimation.begin().thenLoop("animation.wyvern_entity.idle");
+ 	(Use your actual animation names from Blockbench.)
+•	Controller Predicate: Each AnimationController has a predicate method that gets an AnimationState (often referenced as event or state) every tick. In this callback, you decide which animation to play or whether to stop. A common pattern is to check movement: e.g.
+ 	private <E extends WyvernEntity> PlayState movementPredicate(AnimationState<E> event) {
+    if (event.isMoving()) {
+        // If not on ground, play flying; if on ground, play walking
+        if (!event.getAnimatable().isOnGround()) {
+            return event.setAndContinue(FLY_ANIM);
+        } else {
+            return event.setAndContinue(WALK_ANIM);
+        }
+    }
+    // If not moving, play idle (or flying idle)
+    return event.setAndContinue(IDLE_ANIM);
+}
+ 	In this example, event.isMoving() is a helper that checks if the entity has substantial movement[17]. We further check isOnGround() to choose between a walking animation vs. flying animation. Finally, if the wyvern isn’t moving, we play an idle animation. The setAndContinue(...) method tells the controller to start (or continue) the given RawAnimation[17], whereas returning PlayState.STOP would pause this controller.
+•	Multiple Controllers: You can register more than one AnimationController for different purposes. Controllers run concurrently and are layered. For example, you might have a "Movement" controller (handling walk/fly/idle as above) and a separate "Attack" controller that plays a wing-beat or breath-attack animation when triggered. GeckoLib provides some premade controller factories – e.g., DefaultAnimations.genericWalkIdleController(this) which automatically handles walking vs. idling, and DefaultAnimations.genericAttackAnimation(this, DefaultAnimations.ATTACK_STRIKE) for a simple attack[18]. These are optional, but demonstrate that you can have multiple controllers working together. In code, you’d simply do:
+ 	controllers.add(
+    DefaultAnimations.genericWalkIdleController(this),
+    DefaultAnimations.genericAttackAnimation(this, DefaultAnimations.ATTACK_STRIKE)
+);
+ 	which adds two controllers at once[18]. In your custom wyvern, you will likely implement your own logic (since you have flight), but know that multiple controllers can be used (the order added = order applied).
+•	PlayState vs Continue: In your predicates, returning event.setAndContinue(anim) will play the specified animation (looping if defined as such). If you return PlayState.CONTINUE without setting a new animation (as done in some examples), it means keep whatever animation was previously playing on that controller. Returning PlayState.STOP stops the animation. In practice, you’ll usually call setAndContinue when a certain state is active, and STOP otherwise. For example, the example above returns STOP implicitly when the wyvern isn’t moving and we might not want any movement animation (though we chose to play an idle animation instead in this case). Always ensure each code path returns a PlayState.
+Note: If you create an attack animation (say a lightning breath or bite), you might not want it to loop. You can use thenPlay("animation...attack").thenIdle(0) or set the animation JSON to not loop. Also, you can trigger such animations via AI or player action (see Triggered Animations below).
+Smooth Transitions Between Animations
+One of your main requests is smooth transitioning between animations – GeckoLib 4 shines here, as it supports interpolation/blending out of the box:
+•	Transition Length: The third parameter of AnimationController (the 5 in our examples) is the transition length in ticks[19]. This defines how long it blends when switching animations or when a new keyframe is reached. By default, 5 ticks (¼ second) is used, which provides a nice smooth interpolation between the previous pose and the new pose[19]. You can adjust this: a longer time (e.g. 10) makes transitions even smoother/slower, whereas 0 would disable blending entirely (snapping instantly to the new animation)[20]. For most creature animations, keeping a small transition (a few ticks) looks best – it prevents jerky movement when, say, the wyvern goes from idle to flying.
+•	Easing Curves: GeckoLib supports easing functions for transitions and keyframes. By default, the easing defined in your Blockbench animation JSON will be used (linear by default, but you may have set some keyframes to ease in/out, etc.). Version 4.7.4 specifically added support for the “smooth” easing (Catmull-Rom spline) from Bedrock animations[13]. This means if you chose a smooth interpolation for certain keyframes in Blockbench, GeckoLib will honor that, resulting in very fluid motion. If needed, you can override an entire controller’s easing via code: controller.setOverrideEasingType(EasingType.<Type>). For example, you could force an elastic bounce or other easing on transitions regardless of the JSON, by providing a custom EasingType[21]. Setting it back to null uses the default (JSON-defined) easings[22]. In summary, transitions will be linear unless specified otherwise, but you have full control to tweak the easing curve for stylistic effects.
+•	No More Jank: GeckoLib 4.7.4 made some behind-the-scenes fixes that improve smoothness. The engine now waits 5 ticks before resetting bone positions when an animation stops, to avoid a visible pop due to partial tick timing[23]. Also, if an animation causes a bone to rotate a full 360° (common in wing flapping loops or tail swipes), it no longer “counters” that rotation on loop reset – previously you might have seen a sudden jump when the animation restarted, which is now resolved[24]. These changes mean your wyvern’s looping animations (like continuous flight flapping) should look seamless in 4.7.4.
+For best results, design your Blockbench animations to start and end in matching poses if they loop, and use easing (like ease in-out) on keyframes so movement accelerates/decelerates naturally – GeckoLib will blend those motions smoothly. The default 5-tick transition is usually fine; if you notice any hitch when switching animations (e.g., from walking to flying), you can slightly increase the transition time. Just avoid setting it too high, or the creature may appear to lag behind sudden actions (because it’s overly smoothing everything).
+Implementing Banking (Tilting) for the Wyvern in Flight
+Banking refers to the wyvern tilting its body/wings when turning, much like a bird or airplane – this makes flight look more dynamic. There’s no one-line built-in for banking in GeckoLib, but you can achieve it with a bit of clever use of either code or Molang:
+•	Code-Driven Banking: You can manually rotate a bone in the model based on the entity’s turn rate. Typically, you’d want to tilt the entire body and wings around the forward axis (roll axis). In GeckoLib’s model class, you can override a method to adjust bone transforms every frame. The standard way is to override GeoModel.setCustomAnimations(T animatable, long instanceId, AnimationState<T> animationState). Inside this, you have access to the animatable (your entity) and you can fetch bones by name. For example:
+ 	@Override
+public void setCustomAnimations(WyvernEntity animatable, long instanceId, AnimationState<WyvernEntity> animationState) {
+    super.setCustomAnimations(animatable, instanceId, animationState);
+    CoreGeoBone bodyBone = this.getBone("body"); // use your actual body/root bone name
+    if (bodyBone != null) {
+        // Calculate turn speed (difference in yaw between current and last frame)
+        float yawChange = animatable.getYRot() - animatable.yRotO;
+        // Clamp the tilt to avoid extreme banking
+        float tilt = Mth.clamp(yawChange * 0.2f, -0.5f, 0.5f); // 0.5 rad ~ 30 degrees max
+        bodyBone.setRotZ(tilt);
+    }
+}
+ 	In this pseudo-code, we rotate the body bone around the Z axis by an angle proportional to how fast the yaw changed (turning left vs right)【26†L447-L455(analogy)】. We multiply by 0.2 to scale down the effect and clamp it so the bank angle isn’t too large. The use of getYRot() and yRotO (previous yaw) gives the yaw change per tick. This means if the wyvern turns sharply, the body will momentarily tilt. Because we call super.setCustomAnimations(...) first, the bone will then continue to play its keyframed animation but offset by this rotation we applied. The result is a blended effect: the wing flapping animation plays as normal, but the whole model is tilted during a turn.
+Implementation notes: Make sure the bone name matches exactly what your Blockbench model uses (case-sensitive). The CoreGeoBone class (renamed from IBone in GeoLib4) is what getBone() returns. Also, this assumes the model’s local Z-axis corresponds to the roll axis (which is true if your model faces forward along -Z in model space, typical for Minecraft). You might need to swap axes if your model orientation is different. - Molang (Animation Data-Driven) Banking: Another approach is to use a Molang query in your animation file to handle banking dynamically. GeckoLib supports query.yaw_speed, which provides the entity’s current yaw rotational speed[25], as well as query.ground_speed for forward movement speed. You can leverage this in your Blockbench animation JSON. For instance, you could animate the wyvern’s body bone with a rotation Z value of something like:
+
+(query.yaw_speed * 0.15)
+This expression would evaluate each frame, tilting the bone proportionally to yaw speed. If the wyvern turns right, query.yaw_speed might be positive, making a positive rotation (one direction bank); turning left would give a negative value (bank the other way). The factor 0.15 controls how extreme the tilt is – you can tweak that. Molang also has query.is_on_ground and other queries, so you could even make the banking only apply when not on ground (e.g., multiply by 1 - query.is_on_ground as a factor). The benefit of this method is that it’s all in the animation file: the engine will smoothly interpolate that value and you don’t have to write Java code for it. The Catmull-Rom smoothing in 4.7.4 means that if you mark the keyframe as “smooth” (or use continuous interpolation), the banking will adjust fluidly rather than snapping[13].
+Using Molang for banking might require adding a “dummy” keyframe in your animation timeline for the body’s roll rotation, with the value set to the expression. Ensure your animation is continuously playing (e.g., part of the flying loop). GeckoLib will evaluate the Molang expression every tick. The supported query query.yaw_speed is directly provided by GeckoLib[25], making this approach feasible.
+Both approaches can be combined too: if you want fine control, code can override or add to whatever the animation does. But generally, choose one method to avoid conflict. The code-driven method gives you more flexibility in Java (you could even incorporate more complex logic, like banking more at higher speeds), while the Molang method keeps the logic in the animation JSON (which is elegant if you’re comfortable with that).
+Tip: Start with a small tilt factor. Even a 20–30° bank can look significant on a large model. Also, banking might look better if there’s a slight delay or smoothing – you could implement that by averaging the yaw change over a few ticks or using a ease function in Molang (e.g., multiplying by query.delta_time or using an exponential moving average in code). But even the basic approach above will add a lot of realism to your wyvern’s turns.
+Additional Tips and Advanced GeckoLib Features
+•	Smooth Animation Blending: GeckoLib automatically blends between animations on the same controller thanks to the transition setting[19]. If you notice any snapping, double-check that your controller’s transition length isn’t 0. Keep keyframe timelines aligned for looping anims. You can also manually tune bone weights if needed, but usually not necessary.
+•	Head Rotation: If your wyvern has a separate head bone and you want it to track the player or look direction, GeckoLib can do this for you. Using DefaultedEntityGeoModel(..., true) enables automatic head movement[12]. The game will rotate the bone named "head" according to the entity’s yaw and pitch (like vanilla behavior). Be aware that this will override the head bone’s rotation from the animation. In other words, if your animation already turns the head, the automatic rotation may conflict (the head might always face forward relative to body, as the code resets it)[26]. You can choose to either not animate the head in Blockbench (let the code handle all head movement), or disable auto head rotation and handle it manually. For many flying mobs, you might allow limited head turning for targeting. Test and see what works for your case.
+•	Triggered Animations: GeckoLib 4 introduced server-triggered animations – useful for one-off actions like attacks. You can mark an AnimationController as triggerable with a certain trigger name and animation[27]. For example, you might set up an "Attack" controller with .triggerableAnim("breath_attack", BREATH_ANIM). Then, when your wyvern is about to shoot lightning, on the server you call:
+ 	this.triggerAnim("Attack", "breath_attack");
+ 	(The actual call varies slightly depending on context – you may use triggerAnim(entity, id, controllerName, triggerName) as shown in GeckoLib docs[28] – but the concept is that it will start that animation on the client at that moment, bypassing the normal predicate check). This system ensures the animation plays in sync with the action (and only when triggered). It’s perfect for attacks that shouldn’t loop or that occur on demand. Just remember to set up the controller with triggerableAnim and give it a unique name and trigger identifier.
+•	Animation Data and Sync: For most needs, you can rely on queries like query.is_on_ground or the entity’s fields in code (isOnGround(), etc.) to decide animations. If you need to pass custom data to animations (e.g., a custom variable that influences an animation), GeckoLib has a DataTicket system. For instance, you could set a DataTicket<Float> for wing flapping intensity or such. This is more advanced, but know that basic queries cover common things (health, on_fire, time_of_day, etc. as seen in the supported list)[29]. Often you won’t need a custom data sync unless doing something unusual – GeckoLib already syncs the animation state of entities to clients.
+•	Attack Animation Timing: If you use vanilla attacking goals (like MeleeAttackGoal) and the built-in attack animation controller (e.g., DefaultAnimations.genericAttackAnimation), note that by default the swing lasts 6 ticks. If your attack animation is longer, the animation might stop early. You can override your entity’s getCurrentSwingDuration() to lengthen the swing time[30]. Also ensure your entity calls swing(Hand.MAIN_HAND) (or appropriate) when attacking so that the attack animation controller knows to play[31]. This is only relevant if you use the swing-based system. For a breath attack, you might instead use a trigger as mentioned or manage an “isAttacking” flag in the animation predicate.
+•	Performance: GeckoLib is efficient, but it’s good practice to cache animation objects. We mentioned storing RawAnimation statically. Likewise, avoid heavy math in the predicate if possible (a few checks are fine). The library only updates controllers every few ticks (the second parameter in AnimationController, e.g. 5 ticks, also means the predicate runs at most every 5 ticks by default). If you need continuous updates, you could set that to 1, but 5 is usually smooth enough and lighter on CPU[4].
+•	Blockbench Workflow: Continue to use Blockbench to refine your animations. GeckoLib 4.7.4 supports reloading animations without restarting the game (if in development, you can often just recompile resources). Use naming conventions that make sense (e.g., move.fly, move.walk, action.breath in your JSON) – this can help keep track of them. The DefaultAnimations in GeckoLib suggests naming like “walk”, “idle”, “fly”, “attack” etc., which you are following. Also, leverage Blockbench’s animation timeline features: e.g., if your wyvern banks, maybe also dip a wing or shift the tail for balance – small details that you can keyframe for added effect.
+Finally, after implementing, test in-game and tweak. Watch how the wyvern transitions from walking to flying: if it snaps, consider increasing transition length or adding a short takeoff animation. Ensure the banking feels natural (you might adjust the tilt factor). With GeckoLib 4.7.4’s smooth interpolation and your custom logic, you should be able to achieve very fluid animations for the lightning wyvern. Good luck, and enjoy the process of bringing your creature to life with GeckoLib!
+Sources: GeckoLib 4 Wiki and Changelog[19][13][4][17], Molang and animation query docs[25], and official examples from GeckoLib 4[10][18] which illustrate setting up controllers and model assets. The GeckoLib team’s improvements in v4.7.4 (e.g. Catmull-Rom smoothing, bone reset fixes) directly address smooth transitions[23][24], which we have integrated into this plan.
+________________________________________
+[1] [2] [3] [4] [6] [8] [17] [30] [31] Geckolib Entities (Geckolib4) · bernie-g/geckolib Wiki · GitHub
+https://github.com/bernie-g/geckolib/wiki/Geckolib-Entities-(Geckolib4)
+[5] [7] Custom GeckoLib Entity · bernie-g/geckolib Wiki · GitHub
+https://github.com/bernie-g/geckolib/wiki/Custom-GeckoLib-Entity
+[9] [10] [11] [12] [14] [15] [16] [18] [27] [28] Geckolib 4 Changes · bernie-g/geckolib Wiki · GitHub
+https://github.com/bernie-g/geckolib/wiki/Geckolib-4-Changes
+[13] [23] [24] Fabric 1.21.1 - Geckolib
+https://modrinth.com/mod/geckolib/version/4.7.4
+[19] [20] [21] [22] Defining Animations in Code (Geckolib4) · bernie-g/geckolib Wiki · GitHub
+https://github.com/bernie-g/geckolib/wiki/Defining-Animations-in-Code-(Geckolib4)
+[25] [29] Molang · bernie-g/geckolib Wiki · GitHub
+https://github.com/bernie-g/geckolib/wiki/Molang
+[26] Geckolib | head rotation (not pivot) | MCreator
+https://mcreator.net/forum/102623/geckolib-head-rotation-not-pivot
