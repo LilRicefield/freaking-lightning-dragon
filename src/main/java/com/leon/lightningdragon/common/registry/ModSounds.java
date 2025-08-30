@@ -40,6 +40,6 @@ public final class ModSounds {
      * Helper method to register sounds without writing the same crap over and over
      */
     private static RegistryObject<SoundEvent> registerSound(String name) {
-        return REGISTER.register(name, () -> SoundEvent.createVariableRangeEvent(new ResourceLocation(LightningDragonMod.MOD_ID, name)));
+        return REGISTER.register(name, () -> SoundEvent.createVariableRangeEvent(ResourceLocation.fromNamespaceAndPath(LightningDragonMod.MOD_ID, name)));
     }
 }
