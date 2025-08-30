@@ -10,7 +10,7 @@ public class NetworkHandler {
     private static final String PROTOCOL_VERSION = "1";
 
     public static final SimpleChannel INSTANCE = NetworkRegistry.newSimpleChannel(
-            new ResourceLocation(LightningDragonMod.MOD_ID, "main"),
+            ResourceLocation.fromNamespaceAndPath(LightningDragonMod.MOD_ID, "main"),
             () -> PROTOCOL_VERSION,
             PROTOCOL_VERSION::equals,
             PROTOCOL_VERSION::equals
