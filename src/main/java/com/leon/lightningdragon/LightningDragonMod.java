@@ -18,17 +18,16 @@ import net.minecraftforge.event.entity.SpawnPlacementRegisterEvent;
 import net.minecraftforge.eventbus.api.IEventBus;
 import net.minecraftforge.client.event.EntityRenderersEvent;
 import net.minecraftforge.fml.common.Mod;
-import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
+// FMLJavaModLoadingContext.get() is deprecated; the mod loader injects IEventBus into the constructor
 
 @Mod(LightningDragonMod.MOD_ID)
 public class LightningDragonMod {
     public static final String MOD_ID = "lightningdragon";
     public static ResourceLocation rl(String path) {
-        return new ResourceLocation(MOD_ID, path);
+        return ResourceLocation.fromNamespaceAndPath(MOD_ID, path);
     }
 
-    public LightningDragonMod() {
-        IEventBus modBus = FMLJavaModLoadingContext.get().getModEventBus();
+    public LightningDragonMod(IEventBus modBus) {
 
         // Register deferred registers
         ModEntities.REGISTER.register(modBus);
