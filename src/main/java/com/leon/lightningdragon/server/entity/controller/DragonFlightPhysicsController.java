@@ -115,10 +115,13 @@ public class DragonFlightPhysicsController {
 
     // Physics envelopes enabled by default
     private static final boolean USE_PHYSICS_ENVELOPES = true;
-    private static final float MASS = 2.5f;
-    private static final float LIFT_K = 5.0f;
-    private static final float CLIMB_COST = 8.0f;
-    private static final float RESPONSE = 1.0f;
+    private static final float MASS = 1.3f;
+    private static final float LIFT_K = 11.0f;
+    private static final float CLIMB_COST = 6.0f;
+    private static final float RESPONSE = 1.5f;
+    // Occasional maintenance flap (visual) while gliding to suggest lift upkeep
+    private int maintenanceFlapTicks = 0;     // while > 0, force FLY_FORWARD clip
+    private int maintenanceFlapCooldown = 0;  // time until next possible trigger
 
     public DragonFlightPhysicsController(LightningDragonEntity dragon) {
         this.dragon = dragon;
@@ -135,22 +138,12 @@ public class DragonFlightPhysicsController {
         prevWingBeatIntensity = wingBeatIntensity;
 
         // Update flight animation signals
-        if (USE_PHYSICS_ENVELOPES) {
-            updatePhysicsEnvelopes();
-        } else {
-            updateFlightAnimationControllers();
-        }
+        updatePhysicsEnvelopes();
 
         // Update animation fractions for renderer
-        if (USE_PHYSICS_ENVELOPES) {
-            glidingFraction = glideEnv.raw();
-            flappingFraction = flapEnv.raw();
-            hoveringFraction = hoverEnv.raw();
-        } else {
-            glidingFraction = glidingController.getAnimationFraction();
-            flappingFraction = flappingController.getAnimationFraction();
-            hoveringFraction = hoveringController.getAnimationFraction();
-        }
+        glidingFraction = glideEnv.raw();
+        flappingFraction = flapEnv.raw();
+        hoveringFraction = hoverEnv.raw();
 
         // Wing beat intensity for sound timing
         updateWingBeatIntensity();
@@ -159,11 +152,24 @@ public class DragonFlightPhysicsController {
         if (discreteFlapCooldown > 0) {
             discreteFlapCooldown--;
         }
-        if (flapLockTicks > 0) {
-            flapLockTicks--;
-        }
-        if (glideLockTicks > 0) {
-            glideLockTicks--;
+        // Schedule random maintenance flaps during long glides (visual only)
+        if (dragon.isFlying() && !dragon.isLanding() && !dragon.isDodging()) {
+            boolean glideDominant = flapEnv.raw() < 0.35f && hoverEnv.raw() < 0.35f;
+            double vy = dragon.getDeltaMovement().y;
+            boolean slowOrSinking = vy < 0.05 && vy > -0.20;
+
+            if (maintenanceFlapTicks > 0) {
+                maintenanceFlapTicks--;
+            } else if (maintenanceFlapCooldown > 0) {
+                maintenanceFlapCooldown--;
+            } else if (glideDominant && slowOrSinking) {
+                // Trigger a visible flap burst long enough to complete the FLY_FORWARD clip (~1.25s)
+                // Account for ~6 tick transition into forward; keep a small safety margin
+                maintenanceFlapTicks = 32 + dragon.getRandom().nextInt(8); // ~1.6-2.0s at 20tps
+                maintenanceFlapCooldown = 30 + dragon.getRandom().nextInt(40); // ~1.5-3.5s spacing
+            }
+        } else {
+            maintenanceFlapTicks = 0;
         }
     }
     public PlayState handleMovementAnimation(AnimationState<LightningDragonEntity> state) {
@@ -192,23 +198,14 @@ public class DragonFlightPhysicsController {
                         ? (flapWeight > 0.22f || hoverWeight > 0.28f) // Lower threshold to exit
                         : (flapWeight > 0.55f || hoverWeight > 0.65f); // Higher threshold to enter
 
-                // Strong climb can override glide lock to start flapping immediately
-                boolean strongClimb = dragon.getDeltaMovement().y > 0.12;
-                boolean canStartFlap = (glideLockTicks == 0) || strongClimb;
+                // Maintenance flap override (visual pulse while gliding)
+                boolean maintenanceOverride = maintenanceFlapTicks > 0;
 
-                // If we're about to enter flapping, enforce a minimum hold so the cycle doesn't cut off
-                if (flapLockTicks == 0 && currentFlightAnimation != LightningDragonEntity.FLY_FORWARD && shouldFlapBase && canStartFlap) {
-                    flapLockTicks = FLAP_MIN_HOLD_TICKS;
-                }
-
-                boolean shouldFlap = flapLockTicks > 0 || (shouldFlapBase && canStartFlap);
-
-                if (shouldFlap) {
+                if (shouldFlapBase || maintenanceOverride) {
                     if (currentFlightAnimation != LightningDragonEntity.FLY_FORWARD) {
                         // Slightly quicker blend into flap so the beat reads
                         state.getController().transitionLength(6);
                         currentFlightAnimation = LightningDragonEntity.FLY_FORWARD;
-                        glideLockTicks = 0; // clear glide lock when entering flap
                     }
                     state.setAndContinue(LightningDragonEntity.FLY_FORWARD);
                 } else {
@@ -216,7 +213,6 @@ public class DragonFlightPhysicsController {
                         // Smooth but not too long blend out of flap
                         state.getController().transitionLength(6);
                         currentFlightAnimation = LightningDragonEntity.FLY_GLIDE;
-                        glideLockTicks = GLIDE_MIN_HOLD_TICKS; // brief hold before re-flap
                     }
                     state.setAndContinue(LightningDragonEntity.FLY_GLIDE);
                 }
