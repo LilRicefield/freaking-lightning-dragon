@@ -2,8 +2,7 @@ package com.leon.lightningdragon.client.renderer;
 
 import com.leon.lightningdragon.client.model.LightningDragonModel;
 import com.leon.lightningdragon.server.entity.dragons.LightningDragonEntity;
-import net.minecraft.client.renderer.culling.Frustum;
-import net.minecraft.world.phys.Vec3;
+
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.api.distmarker.OnlyIn;
 import org.jetbrains.annotations.NotNull;
@@ -31,11 +30,6 @@ public class LightningDragonRenderer extends GeoEntityRenderer<LightningDragonEn
         this.shadowRadius = 0.8f;
         // Attach beam render layer
         this.addRenderLayer(new LightningBeamLayer());
-    }
-
-    @Override
-    public boolean shouldRender(@NotNull LightningDragonEntity dragon, @NotNull Frustum camera, double camX, double camY, double camZ) {
-        return super.shouldRender(dragon, camera, camX, camY, camZ);
     }
 
     @Override
@@ -81,33 +75,14 @@ public class LightningDragonRenderer extends GeoEntityRenderer<LightningDragonEn
             // Cache this new eye height in the entity
             entity.setCachedEyeHeight(relativeHeadY);
         });
-
-        // Also cache precise world positions for rider and beam origin based on current transform
-        Matrix4f transform = poseStack.last().pose();
-
-        model.getBone("rider").ifPresent(riderBone -> {
-            org.joml.Vector3d p = riderBone.getWorldPosition();
-            Vector4f v = new Vector4f((float)p.x, (float)p.y, (float)p.z, 1.0f).mul(transform);
-            entity.riderAnchorPos = new Vec3(v.x(), v.y(), v.z());
-        });
-
-        model.getBone("beam_origin").ifPresent(beamBone -> {
-            org.joml.Vector3d p = beamBone.getWorldPosition();
-            Vector4f v = new Vector4f((float)p.x, (float)p.y, (float)p.z, 1.0f).mul(transform);
-            entity.beamOriginPos = new Vec3(v.x(), v.y(), v.z());
-        });
     }
-
     @Override
     public void render(@NotNull LightningDragonEntity entity, float entityYaw, float partialTick,
                        @NotNull PoseStack poseStack, @NotNull MultiBufferSource bufferSource, int packedLight) {
 
         // Call normal rendering first
         super.render(entity, entityYaw, partialTick, poseStack, bufferSource, packedLight);
-
-        // World positions already cached in preRender using the active transform
     }
-    
     @Override
     public RenderType getRenderType(LightningDragonEntity animatable, ResourceLocation texture,
                                    @Nullable MultiBufferSource bufferSource, float partialTick) {
