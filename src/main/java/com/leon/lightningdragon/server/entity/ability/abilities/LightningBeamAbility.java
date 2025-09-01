@@ -4,7 +4,6 @@ import com.leon.lightningdragon.server.entity.ability.DragonAbility;
 import com.leon.lightningdragon.server.entity.ability.DragonAbilitySection;
 import com.leon.lightningdragon.server.entity.ability.DragonAbilityType;
 import com.leon.lightningdragon.server.entity.dragons.LightningDragonEntity;
-
 import static com.leon.lightningdragon.server.entity.ability.DragonAbilitySection.*;
 
 /**

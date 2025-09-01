@@ -10,6 +10,8 @@ description='''
 Adds a fully animated, AI-driven Lightning Dragon to Minecraft.
 '''
 authors="Leon Saint"
+mixins = ["lightningdragon.mixins.json"]
+
 [[dependencies.lightningdragon]]
 modId="forge"
 mandatory=true
@@ -27,6 +29,13 @@ side="BOTH"
 [[dependencies.lightningdragon]]
 modId="geckolib"
 mandatory=true
-versionRange="[4.7.3,)"
+versionRange="[4.7,)"
+ordering="AFTER"
+side="BOTH"
+
+[[dependencies.lightningdragon]]
+modId="citadel"
+mandatory=true #mandatory
+versionRange="[2.6.0,)" #mandatory
 ordering="AFTER"
 side="BOTH"
