@@ -213,7 +213,6 @@ public class LightningDragonModel extends GeoModel<LightningDragonEntity> {
         float bodyYawDelta = Mth.wrapDegrees(bodyYaw - previousBodyYaw);
         
         // Movement-based values
-        float movementSpeed = (float) entity.getDeltaMovement().horizontalDistance();
         boolean isFlying = !entity.onGround() && entity.getDeltaMovement().y > -0.1;
         
         // Base idle swaying
@@ -251,10 +250,9 @@ public class LightningDragonModel extends GeoModel<LightningDragonEntity> {
                 tailBones[i].setRotY(Mth.lerp(0.15f, currentRotY, targetRotY)); // Smooth interpolation
                 
                 // Add subtle vertical motion - same for both flying and grounded
-                float verticalWave = (float) (Math.sin((ageInTicks * 0.04F) + (segmentIndex * 0.3F)) * 0.5F * segmentInfluence);
-                
+
                 // Remove speed bounce and flying modifiers for vertical motion
-                float totalPitch = verticalWave; // Keep it simple and consistent
+                float totalPitch = (float) (Math.sin((ageInTicks * 0.04F) + (segmentIndex * 0.3F)) * 0.5F * segmentInfluence); // Keep it simple and consistent
                 
                 // Apply X rotation smoothly without resetting to snapshot
                 float currentRotX = tailBones[i].getRotX();
