@@ -27,6 +27,10 @@ minecraft {
 
             property 'forge.logging.console.level', 'debug'
 
+            // Ensure Mixin refmaps from dependencies (e.g., Citadel) remap to dev names
+            property 'mixin.env.remapRefMap', 'true'
+            property 'mixin.env.refMapRemappingFile', "${project.projectDir}/build/createSrgToMcp/output.srg"
+
             mods {
                 "${mod_id}" {
                     source sourceSets.main
@@ -67,11 +71,6 @@ repositories {
     maven {
         url 'https://maven.minecraftforge.net/'
     }
-    mavenCentral()
-    maven {
-        name = "CurseForge"
-        url  "https://minecraft.curseforge.com/api/maven/"
-    }
     maven {
         // location of a maven mirror for JEI files, as a fallback
         name = "ModMaven"
@@ -85,7 +84,6 @@ repositories {
         }
     }
 }
-
 
 
 dependencies {
