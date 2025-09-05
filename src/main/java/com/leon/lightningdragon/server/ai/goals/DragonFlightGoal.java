@@ -24,6 +24,7 @@ public class DragonFlightGoal extends Goal {
 
     // NEW: Landing cooldown to prevent immediate takeoff after landing
     private static final int LANDING_COOLDOWN_TICKS = 100; // 5 seconds minimum on ground
+    private long lastLandingTime = 0;
 
     public DragonFlightGoal(LightningDragonEntity dragon) {
         this.dragon = dragon;
@@ -42,17 +43,25 @@ public class DragonFlightGoal extends Goal {
             return false;
         }
 
-        // If tamed and close to owner, chill
+        // Weather state snapshot for this decision
+        boolean thundering = dragon.level().isThundering();
+        boolean raining = !thundering && dragon.level().isRaining();
+        boolean stormy = thundering || raining;
+
+        // If tamed and close to owner, chill — except during storms
         if (dragon.isTame()) {
             var owner = dragon.getOwner();
-            if (owner != null && dragon.distanceToSqr(owner) < 15.0 * 15.0) {
+            if (!stormy && owner != null && dragon.distanceToSqr(owner) < 15.0 * 15.0) {
                 return false;
             }
         }
 
         // NEW: Check landing cooldown - don't take off immediately after landing
         long currentTime = dragon.level().getGameTime();
-        if (!dragon.stateManager.isFlying() && (currentTime - dragon.getLastLandingGameTime()) < LANDING_COOLDOWN_TICKS) {
+        int cooldown = LANDING_COOLDOWN_TICKS;
+        if (thundering) cooldown = 0;            // no cooldown in thunder
+        else if (raining) cooldown = cooldown / 4; // shorter cooldown in rain
+        if (!dragon.stateManager.isFlying() && (currentTime - lastLandingTime) < cooldown) {
             return false;
         }
 
@@ -61,10 +70,11 @@ public class DragonFlightGoal extends Goal {
         if (isOverDanger()) {
             isFlying = true;
         } else {
+            // Weather-based flight decisions
             if (dragon.stateManager.isFlying()) {
-                isFlying = shouldKeepFlying();
+                isFlying = shouldKeepFlying(thundering, raining);
             } else {
-                isFlying = shouldTakeOff();
+                isFlying = shouldTakeOff(thundering, raining);
             }
         }
 
@@ -94,7 +104,9 @@ public class DragonFlightGoal extends Goal {
         }
 
         // NEW: Check if dragon wants to land naturally
-        if (dragon.stateManager.isFlying() && !shouldKeepFlying()) {
+        boolean thundering = dragon.level().isThundering();
+        boolean raining = !thundering && dragon.level().isRaining();
+        if (dragon.stateManager.isFlying() && !shouldKeepFlying(thundering, raining)) {
             // Dragon wants to land - trigger landing sequence
             dragon.stateManager.initiateLanding();
             return false;
@@ -178,7 +190,10 @@ public class DragonFlightGoal extends Goal {
         timeSinceTargetChange = 0;
         dragon.getNavigation().stop();
 
-        // No-op: landing cooldown timestamp is now set in DragonStateManager.completeLanding()
+        // NEW: Record landing time for cooldown
+        if (!dragon.stateManager.isFlying()) {
+            lastLandingTime = dragon.level().getGameTime();
+        }
     }
 
     // ===== FLIGHT TARGET FINDING =====
@@ -272,31 +287,31 @@ public class DragonFlightGoal extends Goal {
 
     // ===== DECISION MAKING (FIXED) =====
 
-    private boolean shouldTakeOff() {
+    private boolean shouldTakeOff(boolean thundering, boolean raining) {
         if (isOverDanger()) {
             return true;
         }
 
         // Strong bias: frequently take off in thunderstorms, occasionally in rain, rarely in clear
-        if (dragon.level().isThundering()) {
+        if (thundering) {
             return dragon.getRandom().nextInt(30) == 0;   // ~every 1.5s on average
-        } else if (dragon.level().isRaining()) {
+        } else if (raining) {
             return dragon.getRandom().nextInt(80) == 0;   // ~every 4s on average
         } else {
             return dragon.getRandom().nextInt(1200) == 0; // ~once per minute in clear
         }
     }
 
-    private boolean shouldKeepFlying() {
+    private boolean shouldKeepFlying(boolean thundering, boolean raining) {
         if (isOverDanger()) {
             return true;
         }
 
         // Weather-weighted patrol durations
-        if (dragon.level().isThundering()) {
+        if (thundering) {
             // Thunder: long aerial patrols (~2.5 min average)
             return dragon.getRandom().nextInt(3000) != 0;
-        } else if (dragon.level().isRaining()) {
+        } else if (raining) {
             // Rain: medium patrols (~90 sec average)
             return dragon.getRandom().nextInt(1800) != 0;
         } else {
@@ -318,7 +333,7 @@ public class DragonFlightGoal extends Goal {
             var state = dragon.level().getBlockState(checkPos);
             // Treat as solid ground if the block has a collision shape or sturdy top face
             if (!state.getCollisionShape(dragon.level(), checkPos).isEmpty() ||
-                state.isFaceSturdy(dragon.level(), checkPos, net.minecraft.core.Direction.UP)) {
+                    state.isFaceSturdy(dragon.level(), checkPos, net.minecraft.core.Direction.UP)) {
                 foundSolid = true;
                 break;
             }
@@ -330,10 +345,8 @@ public class DragonFlightGoal extends Goal {
             }
         }
 
-        // Dangerous if over fluid nearby, or no solid ground found, and we're near world bottom (void-like)
+        // Dangerous if over fluid nearby, or no solid ground found and we're near world bottom (void-like)
         if (nearFluid) return true;
         return !foundSolid && dragonPos.getY() < dragon.level().getMinBuildHeight() + 20;
     }
-
-    // findGroundLevel() removed; landing handled by controller/state manager
 }
