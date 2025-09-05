@@ -89,8 +89,34 @@ public class DragonSoundHandler {
             }
         }
 
-        // Do not auto-trigger matching action animation for ambient vocals.
-        // Some keys overlap with action names; avoid incidental mirroring across entities.
+        // Also trigger a matching vocal animation clip on the action controller.
+        // Keep the action window open long enough for the clip to finish.
+        int window = getVocalAnimationWindowTicks(key);
+        if (window > 0) {
+            dragon.playActionAnimationKey(key, window);
+        }
+    }
+
+    /**
+     * Returns an appropriate action-controller window length (in ticks) for a vocal animation key.
+     * Values mirror the animation lengths defined in lightning_dragon.animation.json (rounded up).
+     */
+    private static int getVocalAnimationWindowTicks(String key) {
+        if (key == null) return 0;
+        // Map known keys to their approximate durations (seconds * 20)
+        // grumble1: 5.9167s, grumble2: 8.6667s, grumble3: 2.625s
+        // content: 4.7083s, purr: 5.2083s, snort: 0.875s, chuff: 1.2083s
+        return switch (key) {
+            case "grumble1" -> 120;  // ~5.9s
+            case "grumble2" -> 180;  // ~8.7s
+            case "grumble3" -> 60;   // ~2.6s
+            case "content"  -> 100;  // ~4.7s
+            case "purr"     -> 110;  // ~5.2s
+            case "snort"    -> 24;   // ~0.9s
+            case "chuff"    -> 28;   // ~1.2s
+            // Fallback window for other simple one-shots
+            default -> 40;            // ~2s
+        };
     }
     
     /**
