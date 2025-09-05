@@ -199,12 +199,22 @@ public class LightningDragonEntity extends DragonEntity implements FlyingAnimal,
     // Gate for action-channel playback on clients to avoid accidental mirroring
     private int actionAnimWindow = 0; // ticks remaining that allow action animations to play
 
-    public void openActionAnimWindow(int ticks) {
-        this.actionAnimWindow = Math.max(this.actionAnimWindow, ticks);
-    }
 
     public boolean isActionAnimPlaying() {
         return this.actionAnimWindow > 0;
+    }
+
+    /**
+     * Opens a window for the action controller and triggers a registered one-shot by key.
+     * The window stays open for the specified number of ticks so long clips can complete.
+     * Server-side preferred: triggerAnim will sync to clients automatically.
+     */
+    public void playActionAnimationKey(String key, int windowTicks) {
+        if (key == null || key.isEmpty()) return;
+        // Extend window; do not shorten an existing, longer one
+        this.actionAnimWindow = Math.max(this.actionAnimWindow, Math.max(1, windowTicks));
+        // Trigger the registered animation on the action controller
+        triggerAnim("action", key);
     }
 
     // Last landing completion time (server game time). Used for takeoff cooldowns.
@@ -563,14 +573,6 @@ public class LightningDragonEntity extends DragonEntity implements FlyingAnimal,
                 this.entityData.get(DATA_BEAM_START_Y),
                 this.entityData.get(DATA_BEAM_START_Z)
         );
-    }
-
-    public Vec3 getClientBeamStartPosition(float partialTicks) {
-        if (clientBeamStart != null && prevClientBeamStart != null) {
-            Vec3 d = clientBeamStart.subtract(prevClientBeamStart);
-            return prevClientBeamStart.add(d.scale(partialTicks));
-        }
-        return clientBeamStart != null ? clientBeamStart : getBeamStartPosition();
     }
 
     // (client-reported beam start override removed)
