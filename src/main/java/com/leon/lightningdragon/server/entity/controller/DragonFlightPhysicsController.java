@@ -22,40 +22,14 @@ public class DragonFlightPhysicsController {
     public static class FlightAnimationController {
         private float timer = 0f;
         private final float maxTime;
-        private boolean increasing = false;
 
         public FlightAnimationController(float maxTime) {
             this.maxTime = maxTime;
         }
 
-        public void increaseTimer() {
-            increasing = true;
-            timer = Math.min(timer + 0.2f, maxTime);
-        }
+        public void increaseTimer() { timer = Math.min(timer + 0.2f, maxTime); }
 
-        public void decreaseTimer() {
-            increasing = false;
-            timer = Math.max(timer - 0.2f, 0f);
-        }
-
-        public void restoreState(float fraction, boolean wasIncreasing) {
-            this.increasing = wasIncreasing;
-            // Reverse calculate timer from fraction
-            if (fraction > 0) {
-                this.timer = (float) (Math.asin(fraction) / (Math.PI * 0.5) * maxTime);
-            } else {
-                this.timer = 0f;
-            }
-        }
-
-        public float getAnimationFraction() {
-            float fraction = timer / maxTime;
-            // Smooth sine curve - gives that buttery smoothness
-            return (float) Math.sin(fraction * Math.PI * 0.5);
-        }
-
-        public boolean isIncreasing() { return increasing; }
-        public float getTimer() { return timer; }
+        public void decreaseTimer() { timer = Math.max(timer - 0.2f, 0f); }
     }
 
     // Animation controllers
@@ -82,15 +56,12 @@ public class DragonFlightPhysicsController {
     private int discreteFlapCooldown = 0;
     private boolean hasPlayedFlapSound = false;
     private static final int FLAP_MIN_HOLD_TICKS = 28; // ensure near-full visible cycle incl. blend
-    private static final int GLIDE_MIN_HOLD_TICKS = 14; // brief calm before re-flap
     // Temporary lock to force flapping (e.g., when starting to climb)
     private int flapLockTicks = 0;
     // Temporary lock to hold glide state briefly
-    private int glideLockTicks = 0;
 
     // Wing beat intensity for sound timing
     private float wingBeatIntensity = 0f;
-    private float prevWingBeatIntensity = 0f;
 
     // Sound timing constants
     private static final float BEAT_THRESHOLD = 0.7f;
@@ -114,7 +85,6 @@ public class DragonFlightPhysicsController {
     }
 
     // Physics envelopes enabled by default
-    private static final boolean USE_PHYSICS_ENVELOPES = true;
     private static final float MASS = 1.3f;
     private static final float LIFT_K = 11.0f;
     private static final float CLIMB_COST = 6.0f;
@@ -135,42 +105,10 @@ public class DragonFlightPhysicsController {
         prevGlidingFraction = glidingFraction;
         prevFlappingFraction = flappingFraction;
         prevHoveringFraction = hoveringFraction;
-        prevWingBeatIntensity = wingBeatIntensity;
+        // no previous wingbeat interpolation needed; value is used internally
 
-        // Update flight animation signals
+        // Single entry point updates envelopes, fractions, wingbeat, and maintenance scheduling
         updatePhysicsEnvelopes();
-
-        // Update animation fractions for renderer
-        glidingFraction = glideEnv.raw();
-        flappingFraction = flapEnv.raw();
-        hoveringFraction = hoverEnv.raw();
-
-        // Wing beat intensity for sound timing
-        updateWingBeatIntensity();
-
-        // Handle flap cooldowns
-        if (discreteFlapCooldown > 0) {
-            discreteFlapCooldown--;
-        }
-        // Schedule random maintenance flaps during long glides (visual only)
-        if (dragon.isFlying() && !dragon.isLanding() && !dragon.isDodging()) {
-            boolean glideDominant = flapEnv.raw() < 0.35f && hoverEnv.raw() < 0.35f;
-            double vy = dragon.getDeltaMovement().y;
-            boolean slowOrSinking = vy < 0.05 && vy > -0.20;
-
-            if (maintenanceFlapTicks > 0) {
-                maintenanceFlapTicks--;
-            } else if (maintenanceFlapCooldown > 0) {
-                maintenanceFlapCooldown--;
-            } else if (glideDominant && slowOrSinking) {
-                // Trigger a visible flap burst long enough to complete the FLY_FORWARD clip (~1.25s)
-                // Account for ~6 tick transition into forward; keep a small safety margin
-                maintenanceFlapTicks = 32 + dragon.getRandom().nextInt(8); // ~1.6-2.0s at 20tps
-                maintenanceFlapCooldown = 30 + dragon.getRandom().nextInt(40); // ~1.5-3.5s spacing
-            }
-        } else {
-            maintenanceFlapTicks = 0;
-        }
     }
     public PlayState handleMovementAnimation(AnimationState<LightningDragonEntity> state) {
         // TODO: Handle new Dragon ability system animations
@@ -258,7 +196,6 @@ public class DragonFlightPhysicsController {
         // More sensitive climb detection to encourage flaps
         boolean isClimbing = velocity.y > 0.06;
         // Banking detection removed - now handled by animation.json
-        boolean isTurning = false; // Will be handled by animation system
         boolean isSlowSpeed = speedSqr < 0.0036f;
         boolean isHoveringMode = dragon.isHovering() || (dragon.getTarget() != null && speedSqr < 0.03f);
         boolean isDescending = velocity.y < -0.04 && !isDiving;
@@ -293,7 +230,7 @@ public class DragonFlightPhysicsController {
             hoveringController.decreaseTimer();
 
             // Intelligent flap detection
-            boolean needsActiveFlapping = isDiving || isClimbing || isTurning || isSlowSpeed || isDescending;
+            boolean needsActiveFlapping = isDiving || isClimbing || isSlowSpeed || isDescending;
 
             if (needsActiveFlapping) {
                 // Smooth every-tick updates with reduced increment
@@ -408,10 +345,6 @@ public class DragonFlightPhysicsController {
     }
 
     // ===== GETTERS FOR RENDERER =====
-    public float getGlidingFraction(float partialTick) {
-        return USE_PHYSICS_ENVELOPES ? glideEnv.get(partialTick)
-                : Mth.lerp(partialTick, prevGlidingFraction, glidingFraction);
-    }
 
     private void updatePhysicsEnvelopes() {
         Vec3 v = dragon.getDeltaMovement();
@@ -445,21 +378,42 @@ public class DragonFlightPhysicsController {
         flapEnv.tickToward(flapTarget);
         hoverEnv.tickToward(hoverTarget);
         glideEnv.tickToward(glideTarget);
+
+        // Update animation fractions for renderer from envelopes
+        glidingFraction = glideEnv.raw();
+        flappingFraction = flapEnv.raw();
+        hoveringFraction = hoverEnv.raw();
+
+        // Wing beat intensity for sound timing and flap sound handling
+        updateWingBeatIntensity();
+
+        // Handle flap cooldowns
+        if (discreteFlapCooldown > 0) {
+            discreteFlapCooldown--;
+        }
+        // Schedule random maintenance flaps during long glides (visual only)
+        if (dragon.isFlying() && !dragon.isLanding() && !dragon.isDodging()) {
+            boolean glideDominant = flapEnv.raw() < 0.35f && hoverEnv.raw() < 0.35f;
+            double vy = dragon.getDeltaMovement().y;
+            boolean slowOrSinking = vy < 0.05 && vy > -0.20;
+
+            if (maintenanceFlapTicks > 0) {
+                maintenanceFlapTicks--;
+            } else if (maintenanceFlapCooldown > 0) {
+                maintenanceFlapCooldown--;
+            } else if (glideDominant && slowOrSinking) {
+                // Trigger a visible flap burst long enough to complete the FLY_FORWARD clip (~1.25s)
+                // Account for ~6 tick transition into forward; keep a small safety margin
+                maintenanceFlapTicks = 32 + dragon.getRandom().nextInt(8); // ~1.6-2.0s at 20tps
+                maintenanceFlapCooldown = 30 + dragon.getRandom().nextInt(40); // ~1.5-3.5s spacing
+            }
+        } else {
+            maintenanceFlapTicks = 0;
+        }
     }
 
-    public float getFlappingFraction(float partialTick) {
-        return USE_PHYSICS_ENVELOPES ? flapEnv.get(partialTick)
-                : Mth.lerp(partialTick, prevFlappingFraction, flappingFraction);
-    }
 
-    public float getHoveringFraction(float partialTick) {
-        return USE_PHYSICS_ENVELOPES ? hoverEnv.get(partialTick)
-                : Mth.lerp(partialTick, prevHoveringFraction, hoveringFraction);
-    }
 
-    public float getWingBeatIntensity(float partialTick) {
-        return Mth.lerp(partialTick, prevWingBeatIntensity, wingBeatIntensity);
-    }
 
     // ===== SAVE/LOAD SUPPORT =====
     public void writeToNBT(net.minecraft.nbt.CompoundTag tag) {
@@ -477,7 +431,6 @@ public class DragonFlightPhysicsController {
     public void readFromNBT(net.minecraft.nbt.CompoundTag tag) {
         // Restore all animation state after load
         wingBeatIntensity = tag.getFloat("WingBeatIntensity");
-        prevWingBeatIntensity = wingBeatIntensity;
 
         if (tag.contains("GlideVal")) {
             glideEnv.setRaw(tag.getFloat("GlideVal"));
