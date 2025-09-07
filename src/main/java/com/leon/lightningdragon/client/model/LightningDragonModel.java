@@ -1,39 +1,38 @@
 package com.leon.lightningdragon.client.model;
 
 import com.leon.lightningdragon.LightningDragonMod;
-import software.bernie.geckolib.model.GeoModel;
 import com.leon.lightningdragon.server.entity.dragons.LightningDragonEntity;
-import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
+import software.bernie.geckolib.cache.object.GeoBone;
 import software.bernie.geckolib.constant.DataTickets;
 import software.bernie.geckolib.core.animation.AnimationState;
+import software.bernie.geckolib.model.DefaultedEntityGeoModel;
 import software.bernie.geckolib.model.data.EntityModelData;
-import software.bernie.geckolib.cache.object.GeoBone;
 /**
  * Lightning Dragon model with enhanced bone system and procedural animations
- * Extends DragonGeoModel for advanced dragon-specific features
+ * Now uses DefaultedEntityGeoModel for entity-focused conveniences (default asset paths, hooks)
  */
-public class LightningDragonModel extends GeoModel<LightningDragonEntity> {
-    private static final ResourceLocation MODEL =
-            LightningDragonMod.rl("geo/lightning_dragon.geo.json");
-    private static final ResourceLocation TEXTURE =
-            LightningDragonMod.rl("textures/lightning_dragon.png");
-    private static final ResourceLocation ANIM =
-            LightningDragonMod.rl("animations/lightning_dragon.animation.json");
+public class LightningDragonModel extends DefaultedEntityGeoModel<LightningDragonEntity> {
+    public LightningDragonModel() {
+        // Use defaulted paths: geo/entity/lightning_dragon.geo.json, textures/entity/lightning_dragon.png, animations/entity/lightning_dragon.animation.json
+        // Intentionally do not pass a head bone name so our custom head/neck logic remains authoritative
+        super(LightningDragonMod.rl("lightning_dragon"));
+    }
 
+    // Keep existing asset layout without moving files
     @Override
-    public ResourceLocation getModelResource(LightningDragonEntity entity) {
-        return MODEL;
+    public net.minecraft.resources.ResourceLocation getModelResource(LightningDragonEntity animatable) {
+        return LightningDragonMod.rl("geo/lightning_dragon.geo.json");
     }
 
     @Override
-    public ResourceLocation getTextureResource(LightningDragonEntity entity) {
-        return TEXTURE;
+    public net.minecraft.resources.ResourceLocation getTextureResource(LightningDragonEntity animatable) {
+        return LightningDragonMod.rl("textures/lightning_dragon.png");
     }
 
     @Override
-    public ResourceLocation getAnimationResource(LightningDragonEntity entity) {
-        return ANIM;
+    public net.minecraft.resources.ResourceLocation getAnimationResource(LightningDragonEntity animatable) {
+        return LightningDragonMod.rl("animations/lightning_dragon.animation.json");
     }
 
     /**
