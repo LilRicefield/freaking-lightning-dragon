@@ -1434,6 +1434,30 @@ public class LightningDragonEntity extends DragonEntity implements FlyingAnimal,
     public void lockRiderControls(int ticks) { this.riderControlLockTicks = Math.max(this.riderControlLockTicks, Math.max(0, ticks)); }
     private void tickRiderControlLock() { if (riderControlLockTicks > 0) riderControlLockTicks--; }
 
+    // ===== RECENT AGGRO TRACKING (for roar lightning targeting) =====
+    private final java.util.Map<Integer, Long> recentAggroIds = new java.util.HashMap<>();
+    private static final int AGGRO_TTL_TICKS = 200; // ~10s
+
+    public void noteAggroFrom(net.minecraft.world.entity.LivingEntity target) {
+        if (target == null || target.level().isClientSide) return;
+        recentAggroIds.put(target.getId(), this.level().getGameTime() + AGGRO_TTL_TICKS);
+    }
+
+    public java.util.List<net.minecraft.world.entity.LivingEntity> getRecentAggro() {
+        java.util.List<net.minecraft.world.entity.LivingEntity> out = new java.util.ArrayList<>();
+        long now = this.level().getGameTime();
+        java.util.Iterator<java.util.Map.Entry<Integer, Long>> it = recentAggroIds.entrySet().iterator();
+        while (it.hasNext()) {
+            var e = it.next();
+            if (e.getValue() < now) { it.remove(); continue; }
+            net.minecraft.world.entity.Entity ent = this.level().getEntity(e.getKey());
+            if (ent instanceof net.minecraft.world.entity.LivingEntity le && le.isAlive()) {
+                out.add(le);
+            }
+        }
+        return out;
+    }
+
     @Override
     public float getEyeHeight(@NotNull Pose pose) {
         // Always use dynamically calculated eye height when available
