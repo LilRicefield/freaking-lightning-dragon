@@ -111,6 +111,7 @@ public class HornGoreAbility extends DragonAbility<LightningDragonEntity> {
         LightningDragonEntity dragon = getUser();
         DamageSource src = dragon.level().damageSources().mobAttack(dragon);
         target.hurt(src, GORE_DAMAGE);
+        dragon.noteAggroFrom(target);
 
         // Strong directional knockback away from dragon head
         Vec3 look = dragon.getLookAngle().normalize();

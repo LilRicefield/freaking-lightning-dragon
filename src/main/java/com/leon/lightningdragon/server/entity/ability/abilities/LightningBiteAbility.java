@@ -152,6 +152,7 @@ public class LightningBiteAbility extends DragonAbility<LightningDragonEntity> {
         LightningDragonEntity dragon = getUser();
         DamageSource src = dragon.level().damageSources().mobAttack(dragon);
         primary.hurt(src, BITE_DAMAGE);
+        dragon.noteAggroFrom(primary);
     }
 
     private void chainFrom(LivingEntity start) {
@@ -168,6 +169,7 @@ public class LightningBiteAbility extends DragonAbility<LightningDragonEntity> {
 
             // Damage and VFX
             next.hurt(dragon.level().damageSources().lightningBolt(), damage);
+            dragon.noteAggroFrom(next);
             spawnArc(current.position().add(0, current.getBbHeight() * 0.5, 0),
                      next.position().add(0, next.getBbHeight() * 0.5, 0));
 
