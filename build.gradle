@@ -42,7 +42,7 @@ minecraft {
 
             property 'forge.logging.console.level', 'debug'
 
-            // Ensure Mixin refmaps from dependencies (e.g., Citadel) remap to dev names
+            // Ensure Mixin refmaps from dependencies remap to dev names
             property 'mixin.env.remapRefMap', 'true'
             property 'mixin.env.refMapRemappingFile', "${project.projectDir}/build/createSrgToMcp/output.srg"
 
@@ -118,7 +118,6 @@ dependencies {
     minecraft "net.minecraftforge:forge:1.20.1-47.4.0"
     implementation fg.deobf("software.bernie.geckolib:geckolib-forge-${minecraft_version}:${geckolib_version}")
     implementation("com.eliotlash.mclib:mclib:20")
-    implementation fg.deobf("curse.maven:citadel-331936:6702068")
     // Mixin annotation processor to generate refmap
     annotationProcessor 'org.spongepowered:mixin:0.8.5:processor'
 }
