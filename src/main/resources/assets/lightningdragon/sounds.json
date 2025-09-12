@@ -1,0 +1,212 @@
+{
+  "dragon_grumble_1": {
+    "subtitle": "Dragon grumbles",
+    "sounds": [
+      {
+        "name": "lightningdragon:entity/lightningdragon/dragon_grumble_1",
+        "volume": 1.5,
+        "pitch": 1.0
+      }
+    ]
+  },
+  "dragon_grumble_2": {
+    "subtitle": "Dragon grumbles",
+    "sounds": [
+      {
+        "name": "lightningdragon:entity/lightningdragon/dragon_grumble_2",
+        "volume": 1.5,
+        "pitch": 1.0
+      }
+    ]
+  },
+  "dragon_grumble_3": {
+    "subtitle": "Dragon grumbles",
+    "sounds": [
+      {
+        "name": "lightningdragon:entity/lightningdragon/dragon_grumble_3",
+        "volume": 1.5,
+        "pitch": 1.0
+      }
+    ]
+  },
+  "dragon_purr": {
+    "subtitle": "Dragon purrs contentedly",
+    "sounds": [
+      {
+        "name": "lightningdragon:entity/lightningdragon/dragon_purr",
+        "volume": 0.7,
+        "pitch": 1.0
+      }
+    ]
+  },
+  "dragon_snort": {
+    "subtitle": "Dragon snorts",
+    "sounds": [
+      {
+        "name": "lightningdragon:entity/lightningdragon/dragon_snort",
+        "volume": 0.9,
+        "pitch": 1.0
+      }
+    ]
+  },
+  "dragon_chuff": {
+    "subtitle": "Dragon chuffs",
+    "sounds": [
+      {
+        "name": "lightningdragon:entity/lightningdragon/dragon_chuff",
+        "volume": 0.8,
+        "pitch": 1.0
+      }
+    ]
+  },
+  "dragon_content": {
+    "subtitle": "Dragon sounds content",
+    "sounds": [
+      {
+        "name": "lightningdragon:entity/lightningdragon/dragon_content",
+        "volume": 0.8,
+        "pitch": 1.0
+      }
+    ]
+  },
+  "dragon_annoyed": {
+    "subtitle": "Dragon sounds annoyed",
+    "sounds": [
+      {
+        "name": "lightningdragon:entity/lightningdragon/dragon_annoyed",
+        "volume": 1.0,
+        "pitch": 1.0
+      }
+    ]
+  },
+  "dragon_excited": {
+    "subtitle": "Dragon sounds excited",
+    "sounds": [
+      {
+        "name": "lightningdragon:entity/lightningdragon/dragon_excited",
+        "volume": 1.0,
+        "pitch": 1.0
+      }
+    ]
+  },
+  "dragon_roar": {
+    "subtitle": "Dragon roars",
+    "sounds": [
+      {
+        "name": "lightningdragon:entity/lightningdragon/dragon_roar",
+        "volume": 2.5,
+        "pitch": 1.0
+      }
+    ]
+  },
+  "dragon_bite": {
+    "subtitle": "Dragon bites",
+    "sounds": [
+      {
+        "name": "lightningdragon:entity/lightningdragon/dragon_bite",
+        "volume": 1.0,
+        "pitch": 1.0
+      }
+    ]
+  },
+  "dragon_horngore": {
+    "subtitle": "Dragon gores with horn",
+    "sounds": [
+      {
+        "name": "lightningdragon:entity/lightningdragon/dragon_horngore",
+        "volume": 1.0,
+        "pitch": 1.0
+      }
+    ]
+  },
+  "dragon_growl_warning": {
+    "subtitle": "Dragon growls menacingly",
+    "sounds": [
+      {
+        "name": "lightningdragon:entity/lightningdragon/dragon_growl_warning",
+        "volume": 1.1,
+        "pitch": 1.0
+      }
+    ]
+  },
+  "dragon_hurt": {
+    "subtitle": "Dragon hurt",
+    "sounds": [
+      {
+        "name": "lightningdragon:entity/lightningdragon/dragon_hurt",
+        "volume": 1.2,
+        "pitch": 1.0
+      }
+    ]
+  },
+  "dragon_die": {
+    "subtitle": "Dragon dies",
+    "sounds": [
+      {
+        "name": "lightningdragon:entity/lightningdragon/dragon_die",
+        "volume": 1.5,
+        "pitch": 1.0
+      }
+    ]
+  },
+  "dragon_step": {
+    "subtitle": "Heavy footsteps",
+    "sounds": [
+      {
+        "name": "lightningdragon:entity/lightningdragon/dragon_step",
+        "volume": 0.6,
+        "pitch": 1.0
+      }
+    ]
+  },
+  "flap1": {
+    "subtitle": "Wings flap",
+    "sounds": [
+      {
+        "name": "lightningdragon:entity/lightningdragon/flap1",
+        "volume": 1.0,
+        "pitch": 1.0
+      }
+    ]
+  },
+  "step1": {
+    "subtitle": "Dragon steps",
+    "sounds": [
+      {
+        "name": "lightningdragon:entity/lightningdragon/step1",
+        "volume": 0.8,
+        "pitch": 1.0
+      }
+    ]
+  },
+  "step2": {
+    "subtitle": "Dragon steps",
+    "sounds": [
+      {
+        "name": "lightningdragon:entity/lightningdragon/step2",
+        "volume": 0.8,
+        "pitch": 1.0
+      }
+    ]
+  },
+  "run_step1": {
+    "subtitle": "Dragon runs",
+    "sounds": [
+      {
+        "name": "lightningdragon:entity/lightningdragon/run_step1",
+        "volume": 0.8,
+        "pitch": 1.0
+      }
+    ]
+  },
+  "run_step2": {
+    "subtitle": "Dragon runs",
+    "sounds": [
+      {
+        "name": "lightningdragon:entity/lightningdragon/run_step2",
+        "volume": 0.8,
+        "pitch": 1.0
+      }
+    ]
+  }
+}
