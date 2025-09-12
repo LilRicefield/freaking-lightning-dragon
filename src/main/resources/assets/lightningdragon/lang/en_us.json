@@ -1,0 +1,61 @@
+{
+  "_comment": "Lightning Dragon Entity",
+  "entity.lightningdragon.lightning_dragon": "Lightning Dragon",
+
+  "_comment": "Items",
+  "item.lightningdragon.lightning_dragon_spawn_egg": "Lightning Dragon Spawn Egg",
+
+  "_comment": "Interaction Messages",
+  "message.lightningdragon.tamed": "%s has been tamed!",
+  "message.lightningdragon.already_tamed": "This Lightning Dragon is already tamed!",
+  "message.lightningdragon.not_owner": "You are not the owner of this Lightning Dragon!",
+  "message.lightningdragon.sit": "%s is now sitting",
+  "message.lightningdragon.stand": "%s is now following",
+  "message.lightningdragon.flying": "Lightning Dragon takes flight",
+  "message.lightningdragon.landing": "Lightning Dragon is landing",
+
+  "_comment": "Owner Command Action Bar",
+  "entity.lightningdragon.all.command_0": "%s is following",
+  "entity.lightningdragon.all.command_1": "%s is staying",
+  "entity.lightningdragon.all.command_2": "%s is wandering",
+
+  "_comment": "Subtitles for Sound Events",
+  "subtitles.lightningdragon.dragon.roar": "Lightning Dragon roars",
+  "subtitles.lightningdragon.dragon.growl": "Lightning Dragon growls",
+  "subtitles.lightningdragon.dragon.hurt": "Lightning Dragon hurts",
+  "subtitles.lightningdragon.dragon.death": "Lightning Dragon dies",
+  "subtitles.lightningdragon.dragon.fly": "Lightning Dragon flaps wings",
+  "subtitles.lightningdragon.dragon.land": "Lightning Dragon lands",
+  "subtitles.lightningdragon.dragon.takeoff": "Lightning Dragon takes off",
+  "subtitles.lightningdragon.dragon.step": "Lightning Dragon steps",
+  "subtitles.lightningdragon.dragon.breath": "Lightning Dragon breathes",
+  "subtitles.lightningdragon.dragon.dodge": "Lightning Dragon dodges",
+  "subtitles.lightningdragon.lightning.strike": "Lightning strikes",
+  "subtitles.lightningdragon.lightning.charge": "Lightning charges",
+
+  "_comment": "Death Messages",
+  "death.attack.lightning_dragon": "%1$s was electrocuted by %2$s",
+  "death.attack.lightning_dragon.item": "%1$s was electrocuted by %2$s using %3$s",
+
+  "_comment": "Tooltips and Descriptions",
+  "tooltip.lightningdragon.dragon_egg.line1": "Right-click to place",
+  "tooltip.lightningdragon.dragon_egg.line2": "Feed with salmons to tame",
+  "tooltip.lightningdragon.controls.line1": "Crouch + Right-click: Command",
+  "tooltip.lightningdragon.controls.line3": "Left-click while riding: Melee ability",
+
+  "_comment": "Status Effects (if I add any later)",
+  "effect.lightningdragon.lightning_charged": "Lightning Charged",
+  "effect.lightningdragon.lightning_resistance": "Lightning Resistance",
+
+  "_comment": "Creative Tab (if I make one)",
+  "itemGroup.lightningdragon": "Lightning Dragon",
+
+  "_comment": "Dragon Riding Controls",
+  "key.categories.lightningdragon": "Lightning Dragon",
+  "key.lightningdragon.ascend": "Dragon Ascend",
+  "key.lightningdragon.descend": "Dragon Descend",
+  "key.lightningdragon.accelerate": "Dragon Sprint",
+  "key.lightningdragon.attack": "Melee Attack (Left Click)",
+  "key.lightningdragon.ability3": "Lightning Beam",
+  "key.lightningdragon.roar": "Dragon Roar"
+}
