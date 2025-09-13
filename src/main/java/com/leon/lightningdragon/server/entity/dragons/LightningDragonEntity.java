@@ -1492,6 +1492,12 @@ public class LightningDragonEntity extends DragonEntity implements FlyingAnimal,
         // Save lock states
         tag.putInt("RiderControlLockTicks", riderControlLockTicks);
         tag.putInt("TakeoffLockTicks", takeoffLockTicks);
+
+        // Persist combat cooldowns
+        this.combatManager.saveToNBT(tag);
+
+        // Persist supercharge timer so logout/login doesn't clear buff early
+        tag.putInt("SuperchargeTicks", Math.max(0, this.superchargeTicks));
         
         animationController.writeToNBT(tag);
     }
@@ -1518,6 +1524,18 @@ public class LightningDragonEntity extends DragonEntity implements FlyingAnimal,
         // Restore lock states
         this.riderControlLockTicks = tag.contains("RiderControlLockTicks") ? tag.getInt("RiderControlLockTicks") : 0;
         this.takeoffLockTicks = tag.contains("TakeoffLockTicks") ? tag.getInt("TakeoffLockTicks") : 0;
+
+        // Restore combat cooldowns
+        this.combatManager.loadFromNBT(tag);
+
+        // Restore supercharge timer if present
+        if (tag.contains("SuperchargeTicks")) {
+            this.superchargeTicks = Math.max(0, tag.getInt("SuperchargeTicks"));
+            if (this.superchargeTicks > 0) {
+                // Ensure invulnerability state is consistent if it was set earlier elsewhere
+                // (No invuln implied by supercharge; leave as-is)
+            }
+        }
         
         animationController.readFromNBT(tag);
 
@@ -1723,9 +1741,12 @@ public class LightningDragonEntity extends DragonEntity implements FlyingAnimal,
     private PlayState actionPredicate(AnimationState<LightningDragonEntity> state) {
         // Native GeckoLib: controller idles until triggerAnim is fired
         state.getController().transitionLength(5);
-        // If summoning (controls locked), force the summon clip to prevent bleed
+        // If summoning (controls locked), force the summon clip variant to prevent bleed
         if (areRiderControlsLocked() && !isDying() && !isSleeping() && !sleepingEntering && !sleepingExiting) {
-            state.setAndContinue(RawAnimation.begin().thenPlay("animation.lightning_dragon.summon_storm"));
+            String clip = isFlying() ?
+                    "animation.lightning_dragon.summon_storm_air" :
+                    "animation.lightning_dragon.summon_storm_ground";
+            state.setAndContinue(RawAnimation.begin().thenPlay(clip));
             return PlayState.CONTINUE;
         }
         // If dying, force the death clip to hold until completion
