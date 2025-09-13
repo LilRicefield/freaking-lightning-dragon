@@ -20,6 +20,37 @@ public class DragonCombatManager {
     // Per-ability cooldown tracking
     private final Map<DragonAbilityType<?, ?>, Integer> abilityCooldowns = new HashMap<>();
 
+    // ===== PERSISTENCE =====
+    // Persist global + per-ability cooldowns across save/load
+    public void saveToNBT(net.minecraft.nbt.CompoundTag tag) {
+        tag.putInt("GlobalAbilityCooldown", Math.max(0, globalCooldown));
+        net.minecraft.nbt.CompoundTag cd = new net.minecraft.nbt.CompoundTag();
+        for (Map.Entry<DragonAbilityType<?, ?>, Integer> e : abilityCooldowns.entrySet()) {
+            String name = com.leon.lightningdragon.common.registry.AbilityRegistry.getName(e.getKey());
+            if (name != null && !name.isEmpty()) {
+                cd.putInt(name, Math.max(0, e.getValue()));
+            }
+        }
+        if (!cd.isEmpty()) {
+            tag.put("AbilityCooldowns", cd);
+        }
+    }
+
+    public void loadFromNBT(net.minecraft.nbt.CompoundTag tag) {
+        this.globalCooldown = Math.max(0, tag.getInt("GlobalAbilityCooldown"));
+        this.abilityCooldowns.clear();
+        if (tag.contains("AbilityCooldowns", net.minecraft.nbt.Tag.TAG_COMPOUND)) {
+            net.minecraft.nbt.CompoundTag cd = tag.getCompound("AbilityCooldowns");
+            for (String key : cd.getAllKeys()) {
+                var type = com.leon.lightningdragon.common.registry.AbilityRegistry.get(key);
+                if (type != null) {
+                    int val = Math.max(0, cd.getInt(key));
+                    if (val > 0) this.abilityCooldowns.put(type, val);
+                }
+            }
+        }
+    }
+
     public DragonCombatManager(LightningDragonEntity dragon) {
         this.dragon = dragon;
     }
