@@ -1,0 +1,34 @@
+modLoader="javafml"
+loaderVersion="[47,)"
+license="MIT"
+
+[[mods]]
+modId="lightningdragon"
+version="1.2.0"
+displayName="Zap Van Dink"
+description='''
+Adds a fully animated, AI-driven Lightning Dragon to Minecraft.
+'''
+authors="Leon Saint"
+mixins=["lightningdragon.mixins.json"]
+
+[[dependencies.lightningdragon]]
+modId="forge"
+mandatory=true
+versionRange="[47.4.0,)"
+ordering="NONE"
+side="BOTH"
+
+[[dependencies.lightningdragon]]
+modId="minecraft"
+mandatory=true
+versionRange="[1.20.1,)"
+ordering="NONE"
+side="BOTH"
+
+[[dependencies.lightningdragon]]
+modId="geckolib"
+mandatory=true
+versionRange="[4.7.4,)"
+ordering="BEFORE"
+side="BOTH"
