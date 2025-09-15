@@ -1641,7 +1641,7 @@ public class LightningDragonEntity extends DragonEntity implements FlyingAnimal,
                     if (!level().isClientSide) {
                         player.displayClientMessage(
                                 net.minecraft.network.chat.Component.translatable(
-                                        "entity.lightningdragon.all.command_" + nextCommand,
+                                        "entity.saintsdragons.all.command_" + nextCommand,
                                         this.getName()
                                 ),
                                 true
