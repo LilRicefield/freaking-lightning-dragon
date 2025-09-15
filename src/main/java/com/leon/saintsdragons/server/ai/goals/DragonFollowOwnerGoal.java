@@ -221,7 +221,7 @@ public class DragonFollowOwnerGoal extends Goal {
     public void stop() {
         dragon.setRunning(false);
         dragon.getNavigation().stop();
+        dragon.setGroundMoveStateFromAI(0);
         previousOwnerPos = null;
-
     }
 }
