@@ -14,3 +14,6 @@ Contact me at: lilricefield@gmail.com
 
 As long as your contributions have stuff that are true to the dragon's image and behavior? Heck yeah! We're in this together and take as long as you need, cuz you're human too, and you got other stuff that are more important than this mod.
 Again, just a past-time project. At this point... I don't know if you'd consider it "AI slop" or whatever...
+
+
+Legacy man.
